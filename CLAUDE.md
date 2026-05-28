@@ -103,9 +103,16 @@ committed. If they go missing, regenerate with `gradle wrapper
 - **`.github/workflows/ci.yml`** runs on every push to `main` and
   `claude/**`, and on every PR. Builds a debug APK and uploads it as a
   workflow artifact (`lifegame-debug-<sha>`).
-- **`.github/workflows/release.yml`** runs on tag push matching `v*`
-  (e.g., `v0.1.0`). Builds the release variant, attaches the APK to a
-  GitHub Release with auto-generated notes.
+- **`.github/workflows/release.yml`** cuts releases two ways:
+  - **Auto** — on every push to `main`, it reads `versionName` from
+    `app/build.gradle.kts`; if tag `v<version>` doesn't exist yet, it
+    builds the release variant and publishes a GitHub Release, creating
+    the tag from inside Actions via `GITHUB_TOKEN`. So bumping the
+    version and merging to `main` *is* the release.
+  - **Manual** — pushing a `v*` tag yourself always releases that
+    commit (fallback path; useful for re-releasing or tagging an
+    arbitrary ref).
+  Either way the APK is attached with auto-generated notes.
 
 **Signing:** the `release` build type is currently wired to the **debug
 keystore** (see `app/build.gradle.kts`). That keeps CI builds installable
@@ -121,14 +128,16 @@ When you're ready for real release signing:
    and switch `buildTypes.release.signingConfig` to it.
 5. Decode the keystore in `release.yml` before `assembleRelease`.
 
-To cut a release from a branch:
+To cut a release, bump the version and merge to `main`:
 
 ```
-git tag v0.1.0
-git push origin v0.1.0
+# edit app/build.gradle.kts: versionName = "0.0.2"
+git commit -am "Bump versionName to 0.0.2"
+git push origin <branch>   # then merge/push to main
 ```
 
-The workflow does the rest.
+The push to `main` triggers the release. Pushing a `v*` tag manually
+still works as a fallback.
 
 ## Conventions
 
