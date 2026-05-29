@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +53,7 @@ fun DailyScreen(
     val state by viewModel.state.collectAsState()
     val apotheosis by viewModel.apotheosis.collectAsState()
     val boonGranted by viewModel.boonGranted.collectAsState()
+    val picker by viewModel.spendPicker.collectAsState()
 
     Scaffold(
         topBar = {
@@ -92,7 +94,7 @@ fun DailyScreen(
                         DaemonBlock(
                             block = block,
                             onComplete = viewModel::completeMinor,
-                            onSpendWish = { viewModel.spendWish(block.daemon.id) },
+                            onOpenPicker = { viewModel.openSpendPicker(block.daemon.id) },
                             onOpenDetail = { onOpenDetail(block.daemon.id) },
                         )
                     }
@@ -125,11 +127,39 @@ fun DailyScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    val granted = event.grantedBoonText
+                    if (granted != null && event.grantedBoonCount > 0) {
+                        Text(
+                            text = if (event.grantedBoonCount == 1)
+                                "As promised — “$granted.”"
+                            else
+                                "As promised — “$granted.” ×${event.grantedBoonCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    picker?.let { pickerState ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelSpendPicker,
+            confirmButton = {
+                TextButton(onClick = viewModel::cancelSpendPicker) { Text("Cancel") }
+            },
+            title = { Text("Spend a wish — ${pickerState.daemonName}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "A wish has been granted.",
+                        text = "Pick what to claim:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    pickerState.boons.forEach { boon ->
+                        BoonPickerRow(boon = boon, onSpend = { viewModel.confirmSpend(boon.id) })
+                    }
                 }
             }
         )
@@ -148,10 +178,41 @@ fun DailyScreen(
 }
 
 @Composable
+private fun BoonPickerRow(boon: Boon, onSpend: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = boon.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = "${boon.count} available",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onSpend) { Text("Spend") }
+        }
+    }
+}
+
+@Composable
 private fun DaemonBlock(
     block: DaemonDailyBlock,
     onComplete: (Long) -> Unit,
-    onSpendWish: () -> Unit,
+    onOpenPicker: () -> Unit,
     onOpenDetail: () -> Unit,
 ) {
     Card(
@@ -178,10 +239,10 @@ private fun DaemonBlock(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (block.daemon.wishesAvailable > 0) {
+                if (block.totalWishes > 0) {
                     AssistChip(
-                        onClick = onSpendWish,
-                        label = { Text("${block.daemon.wishesAvailable} wish") },
+                        onClick = onOpenPicker,
+                        label = { Text("${block.totalWishes} wish") },
                     )
                     Spacer(Modifier.width(8.dp))
                 }
@@ -245,4 +306,3 @@ private fun DaemonBlock(
         }
     }
 }
-

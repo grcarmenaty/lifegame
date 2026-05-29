@@ -7,6 +7,6 @@ import com.grcarmenaty.lifegame.domain.PantheonRepository
 class LifegameApplication : Application() {
     val repository: PantheonRepository by lazy {
         val db = LifegameDatabase.get(this)
-        PantheonRepository(db.daemonDao(), db.questDao())
+        PantheonRepository(db.daemonDao(), db.questDao(), db.boonDao())
     }
 }

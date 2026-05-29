@@ -9,7 +9,5 @@ data class Daemon(
     val name: String,
     val archetype: String,
     val voicePreset: String,
-    val boonText: String,
-    val wishesAvailable: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
 )

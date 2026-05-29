@@ -1,7 +1,9 @@
 package com.grcarmenaty.lifegame.domain
 
+import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
+import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
@@ -10,34 +12,41 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * Single facade over Daemon + Quest DAOs. Encapsulates the apotheosis
- * rule (major-quest completion → daemon level-up + wish accrual) so the
- * UI never has to know how the loop closes.
+ * Single facade over Daemon + Quest + Boon DAOs. Encapsulates the
+ * apotheosis rule (major-quest completion → daemon level-up + wish
+ * accrual on the configured boon) so the UI never has to know how the
+ * loop closes.
+ *
+ * Invariant: `boons.count` is the source of truth for available wishes.
+ * Each major is a write-once trigger that increments its `wishBoonId`'s
+ * count by `wishRewardCount` on completion. We never recompute wishes
+ * from historical majors; deleting a boon nulls the FK on any major
+ * still pointing at it (SET NULL) and historical deposits stay intact.
  */
 class PantheonRepository(
     private val daemonDao: DaemonDao,
     private val questDao: QuestDao,
+    private val boonDao: BoonDao,
 ) {
+    private val defaultThresholdForAddedMajor = 3
+
     fun observeDaemons(): Flow<List<Daemon>> = daemonDao.observeAll()
-
     fun observeDaemon(id: Long): Flow<Daemon?> = daemonDao.observe(id)
-
     suspend fun daemonCount(): Int = daemonDao.count()
-
     suspend fun getDaemon(id: Long): Daemon? = daemonDao.getById(id)
 
     fun observeMajors(daemonId: Long): Flow<List<MajorQuest>> =
         questDao.observeMajorsForDaemon(daemonId)
-
     fun observeMinors(majorId: Long): Flow<List<MinorQuest>> =
         questDao.observeMinorsForMajor(majorId)
+    fun observeBoons(daemonId: Long): Flow<List<Boon>> =
+        boonDao.observeForDaemon(daemonId)
 
     suspend fun updateDaemon(
         id: Long,
         name: String,
         archetype: String,
         voicePreset: VoicePreset,
-        boonText: String,
     ) {
         val existing = daemonDao.getById(id) ?: return
         daemonDao.update(
@@ -45,14 +54,12 @@ class PantheonRepository(
                 name = name,
                 archetype = archetype,
                 voicePreset = voicePreset.name,
-                boonText = boonText,
             )
         )
     }
 
     suspend fun vanishDaemon(id: Long) = daemonDao.deleteById(id)
 
-    /** Derived per design v2: level starts at 1, +1 per completed major. */
     suspend fun levelOf(daemonId: Long): Int =
         1 + questDao.countCompletedMajorsForDaemon(daemonId)
 
@@ -65,18 +72,18 @@ class PantheonRepository(
         firstMinorTitles: List<String>,
     ): Long {
         val daemonId = daemonDao.insert(
-            Daemon(
-                name = name,
-                archetype = archetype,
-                voicePreset = voicePreset.name,
-                boonText = boonText,
-            )
+            Daemon(name = name, archetype = archetype, voicePreset = voicePreset.name)
+        )
+        val boonId = boonDao.insert(
+            Boon(daemonId = daemonId, text = boonText, count = 0)
         )
         val majorId = questDao.insertMajor(
             MajorQuest(
                 daemonId = daemonId,
                 title = firstMajorTitle,
                 thresholdCount = firstMinorTitles.size.coerceAtLeast(1),
+                wishBoonId = boonId,
+                wishRewardCount = 1,
             )
         )
         firstMinorTitles.forEach { title ->
@@ -116,30 +123,99 @@ class PantheonRepository(
 
         val newProgress = major.progressCount + minor.weight
         val nowComplete = newProgress >= major.thresholdCount
-
         questDao.updateMajor(
             major.copy(progressCount = newProgress, completed = nowComplete)
         )
-
         if (!nowComplete) return null
 
         val daemon = daemonDao.getById(major.daemonId) ?: return null
-        daemonDao.update(daemon.copy(wishesAvailable = daemon.wishesAvailable + 1))
+        // Apotheosis: deposit the configured reward on the boon. If
+        // wishBoonId is null (boon was deleted), level-up only.
+        val grantedText = major.wishBoonId?.let { boonId ->
+            val boon = boonDao.getById(boonId) ?: return@let null
+            if (major.wishRewardCount > 0) {
+                boonDao.incrementCount(boonId, major.wishRewardCount)
+            }
+            boon.text
+        }
         return ApotheosisEvent(
             daemonId = daemon.id,
             daemonName = daemon.name,
             voicePreset = VoicePreset.fromKey(daemon.voicePreset),
             completedMajorTitle = major.title,
             newLevel = levelOf(daemon.id),
+            grantedBoonText = grantedText,
+            grantedBoonCount = if (grantedText != null) major.wishRewardCount else 0,
         )
     }
 
-    suspend fun spendWish(daemonId: Long): String? {
-        val daemon = daemonDao.getById(daemonId) ?: return null
-        if (daemon.wishesAvailable <= 0) return null
-        daemonDao.update(daemon.copy(wishesAvailable = daemon.wishesAvailable - 1))
-        return daemon.boonText
+    /**
+     * Spend one of [boonId]. Transactional via the DAO: if another
+     * caller raced us to the last wish, the decrement is a no-op and
+     * this returns null.
+     */
+    suspend fun spendBoon(boonId: Long): String? = boonDao.spend(boonId)?.text
+
+    // ---- CRUD: quests ----
+
+    suspend fun addMajor(daemonId: Long, title: String) {
+        // Default `wishBoonId` to the daemon's first boon; if there are
+        // none somehow, the column is nullable and the major is just
+        // level-only.
+        val firstBoon = boonDao.getForDaemon(daemonId).firstOrNull()
+        questDao.insertMajor(
+            MajorQuest(
+                daemonId = daemonId,
+                title = title,
+                thresholdCount = defaultThresholdForAddedMajor,
+                wishBoonId = firstBoon?.id,
+                wishRewardCount = 1,
+            )
+        )
     }
+
+    /**
+     * Add a minor under the given major. Returns false if the major is
+     * already completed (UI should guard this too — see the Architect's
+     * loop-hole note in the v0.0.3 design doc).
+     */
+    suspend fun addMinor(
+        majorId: Long,
+        title: String,
+        cadence: String,
+        weight: Int,
+    ): Boolean {
+        val major = questDao.getMajorById(majorId) ?: return false
+        if (major.completed) return false
+        questDao.insertMinor(
+            MinorQuest(
+                majorQuestId = majorId,
+                title = title,
+                cadence = cadence,
+                weight = weight.coerceAtLeast(1),
+            )
+        )
+        return true
+    }
+
+    suspend fun deleteMajor(majorId: Long) = questDao.deleteMajorById(majorId)
+    suspend fun deleteMinor(minorId: Long) = questDao.deleteMinorById(minorId)
+
+    suspend fun progressLossPreview(majorId: Long): Pair<Int, Int> {
+        val done = questDao.countCompletedMinorsForMajor(majorId)
+        val total = questDao.countMinorsForMajor(majorId)
+        return done to total
+    }
+
+    // ---- CRUD: boons ----
+
+    suspend fun addBoon(daemonId: Long, text: String, initialCount: Int) {
+        boonDao.insert(
+            Boon(daemonId = daemonId, text = text, count = initialCount.coerceAtLeast(0))
+        )
+    }
+
+    suspend fun deleteBoon(boonId: Long) = boonDao.deleteById(boonId)
 
     private fun sameLocalDay(a: Long, b: Long): Boolean {
         val tz = TimeZone.getDefault()
@@ -156,4 +232,6 @@ data class ApotheosisEvent(
     val voicePreset: VoicePreset,
     val completedMajorTitle: String,
     val newLevel: Int,
+    val grantedBoonText: String?,
+    val grantedBoonCount: Int,
 )

@@ -3,6 +3,7 @@ package com.grcarmenaty.lifegame.ui.daily
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.ApotheosisEvent
@@ -32,11 +33,21 @@ data class DaemonDailyBlock(
     val leadingMajorTitle: String?,
     val greeting: String,
     val openMinors: List<MinorEntry>,
-)
+    val availableBoons: List<Boon>,
+) {
+    val totalWishes: Int get() = availableBoons.sumOf { it.count }
+}
 
 data class MinorEntry(
     val minor: MinorQuest,
     val parentMajorTitle: String,
+)
+
+/** Open picker state — non-null means the spend dialog is showing. */
+data class SpendPickerState(
+    val daemonId: Long,
+    val daemonName: String,
+    val boons: List<Boon>,
 )
 
 class DailyViewModel(
@@ -48,6 +59,9 @@ class DailyViewModel(
 
     private val _boonGranted = MutableStateFlow<String?>(null)
     val boonGranted: StateFlow<String?> = _boonGranted
+
+    private val _spendPicker = MutableStateFlow<SpendPickerState?>(null)
+    val spendPicker: StateFlow<SpendPickerState?> = _spendPicker
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<DailyState> = repository.observeDaemons()
@@ -65,7 +79,8 @@ class DailyViewModel(
     private fun buildDaemonBlockFlow(daemon: Daemon): Flow<DaemonDailyBlock> {
         val voice = VoicePreset.fromKey(daemon.voicePreset)
         val greetingSeed = daemon.id + todaySeed()
-        return repository.observeMajors(daemon.id).flatMapLatest { majors ->
+
+        val coreFlow: Flow<CoreBlock> = repository.observeMajors(daemon.id).flatMapLatest { majors ->
             val openMajors = majors.filter { !it.completed }
             val leading = openMajors.maxByOrNull {
                 it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1)
@@ -79,12 +94,10 @@ class DailyViewModel(
             if (openMajors.isEmpty()) {
                 flow {
                     emit(
-                        DaemonDailyBlock(
-                            daemon = daemon,
+                        CoreBlock(
                             level = repository.levelOf(daemon.id),
                             levelProgress = levelProgress,
-                            leadingMajorTitle = leadingTitle,
-                            greeting = voice.greeting(greetingSeed),
+                            leadingTitle = leadingTitle,
                             openMinors = emptyList(),
                         )
                     )
@@ -97,16 +110,26 @@ class DailyViewModel(
                     }
                 }
                 combine(minorFlows) { lists ->
-                    DaemonDailyBlock(
-                        daemon = daemon,
+                    CoreBlock(
                         level = repository.levelOf(daemon.id),
                         levelProgress = levelProgress,
-                        leadingMajorTitle = leadingTitle,
-                        greeting = voice.greeting(greetingSeed),
+                        leadingTitle = leadingTitle,
                         openMinors = lists.flatMap { it },
                     )
                 }
             }
+        }
+
+        return combine(coreFlow, repository.observeBoons(daemon.id)) { core, boons ->
+            DaemonDailyBlock(
+                daemon = daemon,
+                level = core.level,
+                levelProgress = core.levelProgress,
+                leadingMajorTitle = core.leadingTitle,
+                greeting = voice.greeting(greetingSeed),
+                openMinors = core.openMinors,
+                availableBoons = boons.filter { it.count > 0 },
+            )
         }
     }
 
@@ -116,13 +139,25 @@ class DailyViewModel(
             if (event != null) _apotheosis.value = event
         }
     }
-
     fun dismissApotheosis() { _apotheosis.value = null }
 
-    fun spendWish(daemonId: Long) {
+    fun openSpendPicker(daemonId: Long) {
+        val daemon = state.value.daemons.firstOrNull { it.daemon.id == daemonId } ?: return
+        if (daemon.availableBoons.isEmpty()) return
+        _spendPicker.value = SpendPickerState(
+            daemonId = daemonId,
+            daemonName = daemon.daemon.name,
+            boons = daemon.availableBoons,
+        )
+    }
+
+    fun cancelSpendPicker() { _spendPicker.value = null }
+
+    fun confirmSpend(boonId: Long) {
         viewModelScope.launch {
-            val boon = repository.spendWish(daemonId)
-            if (boon != null) _boonGranted.value = boon
+            val boonText = repository.spendBoon(boonId)
+            _spendPicker.value = null
+            if (boonText != null) _boonGranted.value = boonText
         }
     }
 
@@ -147,6 +182,13 @@ class DailyViewModel(
         val c = Calendar.getInstance()
         return (c.get(Calendar.YEAR) * 1000L) + c.get(Calendar.DAY_OF_YEAR)
     }
+
+    private data class CoreBlock(
+        val level: Int,
+        val levelProgress: Float,
+        val leadingTitle: String?,
+        val openMinors: List<MinorEntry>,
+    )
 
     companion object {
         fun factory(repository: PantheonRepository) = object : ViewModelProvider.Factory {

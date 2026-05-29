@@ -12,10 +12,16 @@ import androidx.room.PrimaryKey
             entity = Daemon::class,
             parentColumns = ["id"],
             childColumns = ["daemonId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = Boon::class,
+            parentColumns = ["id"],
+            childColumns = ["wishBoonId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
-    indices = [Index("daemonId")]
+    indices = [Index("daemonId"), Index("wishBoonId")],
 )
 data class MajorQuest(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -25,5 +31,7 @@ data class MajorQuest(
     val thresholdCount: Int,
     val progressCount: Int = 0,
     val completed: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val wishBoonId: Long? = null,
+    val wishRewardCount: Int = 1,
+    val createdAt: Long = System.currentTimeMillis(),
 )

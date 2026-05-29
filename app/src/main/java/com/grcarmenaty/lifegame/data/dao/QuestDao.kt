@@ -19,14 +19,26 @@ interface QuestDao {
     @Query("SELECT * FROM major_quests WHERE id = :id")
     suspend fun getMajorById(id: Long): MajorQuest?
 
+    @Query("SELECT COUNT(*) FROM minor_quests WHERE majorQuestId = :majorId AND completed = 1")
+    suspend fun countCompletedMinorsForMajor(majorId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM minor_quests WHERE majorQuestId = :majorId")
+    suspend fun countMinorsForMajor(majorId: Long): Int
+
     @Insert
     suspend fun insertMajor(major: MajorQuest): Long
 
     @Update
     suspend fun updateMajor(major: MajorQuest)
 
+    @Query("DELETE FROM major_quests WHERE id = :id")
+    suspend fun deleteMajorById(id: Long)
+
     @Query("SELECT * FROM minor_quests WHERE majorQuestId = :majorId ORDER BY createdAt ASC")
     fun observeMinorsForMajor(majorId: Long): Flow<List<MinorQuest>>
+
+    @Query("SELECT * FROM minor_quests WHERE majorQuestId = :majorId ORDER BY createdAt ASC")
+    suspend fun getMinorsForMajor(majorId: Long): List<MinorQuest>
 
     @Query("SELECT * FROM minor_quests WHERE id = :id")
     suspend fun getMinorById(id: Long): MinorQuest?
@@ -36,4 +48,7 @@ interface QuestDao {
 
     @Update
     suspend fun updateMinor(minor: MinorQuest)
+
+    @Query("DELETE FROM minor_quests WHERE id = :id")
+    suspend fun deleteMinorById(id: Long)
 }

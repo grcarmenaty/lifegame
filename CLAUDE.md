@@ -29,23 +29,41 @@ Scaffold is in place. The app builds, runs, and ships:
   fill ratio = the most-progressed open major's `progressCount /
   thresholdCount` (closing it = +1 level). Empty when no open majors.
 - **Daemon detail screen** (tap the tune icon on a daemon card): edit
-  name / archetype / voice preset / boon; full quest history (all
-  majors + minors, completed and open); destructive **Vanish daemon**
-  with confirmation (cascades to quests via the existing FK).
-- **Apotheosis** on major-quest completion: derived level-up, +1 wish,
-  in-voice dialog.
-- **Wish/boon** spending via the chip in the daemon's header.
+  name / archetype / voice preset; full quest history (all majors +
+  minors, completed and open); destructive **Vanish daemon** with
+  confirmation (cascades to quests via the existing FK).
+- **Quest CRUD** on the detail screen: add major (title; threshold
+  defaults to 3); add minor under any open major (title, cadence
+  one-off/daily, weight 1–9); delete major (confirm shows progress
+  loss); delete minor (no refund of past contributions yet).
+- **Multiple boons per daemon** via a Boons section on detail: add
+  (text + initial count) and delete (confirm). Summoning still
+  authors one boon. Each major implicitly grants +1 of the daemon's
+  first boon on completion (per-major reward configuration column
+  exists but is not exposed yet).
+- **Apotheosis** on major-quest completion: derived level-up + reward
+  deposited into the configured boon, in-voice dialog names the boon.
+- **Wish spending** via a picker dialog reached from the chip on the
+  daemon's header: lists every boon with `count > 0` and an explicit
+  Spend button per row. Transactional `count > 0` guard against
+  double-spend.
 
-Not yet implemented (deliberately deferred per design v2):
+Not yet implemented (deliberately deferred per design v2 / v0.0.3
+council):
 - Epic chapters / scripture view
-- Multiple wish types per daemon, wish-nature scaling
+- Per-major wish reward configuration UI (the `wishBoonId` and
+  `wishRewardCount` columns exist; v0.0.4 exposes them)
+- Per-major threshold configuration UI for added majors (hardcoded 3)
+- Editing quest/boon text (delete + re-add for now)
+- Refund of contributions when a DAILY minor that has contributed is
+  deleted (clean refund needs per-minor completion-count tracking)
+- Cadences beyond ONE_OFF + DAILY
 - Cross-daemon mechanics (including `@token` flavor references)
-- Repeatable-minor cadence beyond `DAILY`
 - Failure-handling tonal decay (greeting/completion lines stay neutral
   for now; reconciliation beats not wired up)
-- Adding / editing / removing quests on an existing daemon (only the
-  daemon's own fields are editable today)
-- Unit + UI tests (only the scaffolding directories exist)
+- Soft-delete + undo for destructive ops
+- Unit + UI tests (only the scaffolding directories exist;
+  `MigrationTestHelper` round-trip for 1 → 2 is a tracked follow-up)
 
 ## Tech stack
 
@@ -160,10 +178,14 @@ still works as a fallback.
 - **DI:** manual via `LifegameApplication`. Don't add Hilt yet.
 - **Persistence:** Room for structured data; DataStore (Preferences)
   for settings when we need them. No raw `SharedPreferences`.
-- **Schema migrations:** v1 ships with `exportSchema = false` and one
-  database version. Before bumping the schema version, set
-  `exportSchema = true`, commit the schema JSON, and write a
-  `Migration`. Don't ship destructive migrations.
+- **Schema migrations:** from v2 onwards `exportSchema = true` and the
+  KSP arg `room.schemaLocation = $projectDir/schemas` writes JSON
+  schemas under `app/schemas/`. Commit the v_N_ JSON when bumping the
+  schema version and write a hand-rolled `Migration` that matches it
+  byte-for-byte (recreate-table for column drops or FK-add, since
+  SQLite < 3.35 can't drop columns natively and `ALTER ... ADD ...
+  REFERENCES` is inert on existing rows). Don't ship destructive
+  migrations.
 - **Architecture:** single-module. Split into feature modules only when
   build time or ownership demands it.
 - **Voice presets:** new presets go in `domain/VoicePreset.kt`. Keep

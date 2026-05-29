@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -20,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.PantheonRepository
@@ -65,6 +69,7 @@ fun DaemonDetailScreen(
     )
     val state by viewModel.state.collectAsState()
     val saved by viewModel.saved.collectAsState()
+    val deletePreview by viewModel.deletePreview.collectAsState()
 
     val daemon = state.daemon
     if (daemon == null) {
@@ -74,23 +79,22 @@ fun DaemonDetailScreen(
         return
     }
 
-    // Keyed on daemon.id so opening a different daemon resets form state.
     var name by rememberSaveable(daemon.id) { mutableStateOf(daemon.name) }
     var archetype by rememberSaveable(daemon.id) { mutableStateOf(daemon.archetype) }
     var voiceKey by rememberSaveable(daemon.id) { mutableStateOf(daemon.voicePreset) }
-    var boon by rememberSaveable(daemon.id) { mutableStateOf(daemon.boonText) }
+
     var showVanishConfirm by rememberSaveable { mutableStateOf(false) }
+    var showAddBoon by rememberSaveable { mutableStateOf(false) }
+    var pendingDeleteBoonId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showAddMajor by rememberSaveable { mutableStateOf(false) }
+    var addingMinorForMajor by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val voice = VoicePreset.fromKey(voiceKey)
     val dirty = name != daemon.name ||
         archetype != daemon.archetype ||
-        voiceKey != daemon.voicePreset ||
-        boon != daemon.boonText
-    val canSave = dirty && name.isNotBlank() && archetype.isNotBlank() && boon.isNotBlank()
+        voiceKey != daemon.voicePreset
+    val canSave = dirty && name.isNotBlank() && archetype.isNotBlank()
 
-    // After save, the daemon flow re-emits with the new values, which makes
-    // `dirty` flip back to false on its own. Acknowledge the saved flag so it
-    // doesn't sit on the VM forever.
     LaunchedEffect(saved) { if (saved) viewModel.acknowledgeSaved() }
 
     Scaffold(
@@ -110,7 +114,7 @@ fun DaemonDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { Spacer(Modifier.height(4.dp)) }
 
@@ -122,13 +126,7 @@ fun DaemonDetailScreen(
                 )
             }
 
-            item {
-                Text(
-                    text = "Edit",
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-            }
-
+            item { Text("Edit", style = MaterialTheme.typography.headlineSmall) }
             item {
                 OutlinedTextField(
                     value = name,
@@ -146,37 +144,49 @@ fun DaemonDetailScreen(
                 )
             }
             item {
-                VoicePresetPicker(
-                    selected = voice,
-                    onSelect = { voiceKey = it.name },
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = boon,
-                    onValueChange = { boon = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Boon") },
-                )
+                VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
             }
             item {
                 Button(
-                    onClick = { viewModel.save(name, archetype, voice, boon) },
+                    onClick = { viewModel.save(name, archetype, voice) },
                     enabled = canSave,
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (dirty) "Save changes" else "Saved")
+                ) { Text(if (dirty) "Save changes" else "Saved") }
+            }
+
+            item { HorizontalDivider() }
+            item {
+                SectionHeader(
+                    title = "Boons",
+                    actionLabel = "+ Boon",
+                    onAction = { showAddBoon = true },
+                )
+            }
+            if (state.boons.isEmpty()) {
+                item {
+                    Text(
+                        text = "No boons yet — the daemon has nothing to grant.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                items(state.boons, key = { it.id }) { boon ->
+                    BoonRow(
+                        boon = boon,
+                        onDelete = { pendingDeleteBoonId = boon.id },
+                    )
                 }
             }
 
             item { HorizontalDivider() }
             item {
-                Text(
-                    text = "Quest history",
-                    style = MaterialTheme.typography.headlineSmall,
+                SectionHeader(
+                    title = "Quest history",
+                    actionLabel = "+ Major",
+                    onAction = { showAddMajor = true },
                 )
             }
-
             if (state.majors.isEmpty()) {
                 item {
                     Text(
@@ -187,7 +197,14 @@ fun DaemonDetailScreen(
                 }
             } else {
                 items(state.majors, key = { it.id }) { major ->
-                    MajorWithMinors(repository = repository, major = major)
+                    MajorCard(
+                        major = major,
+                        grantsBoonText = state.boonTextFor(major.wishBoonId),
+                        repository = repository,
+                        onAddMinor = { addingMinorForMajor = major.id },
+                        onDeleteMajor = { viewModel.requestDeleteMajor(major.id, major.title) },
+                        onDeleteMinor = { viewModel.deleteMinor(it) },
+                    )
                 }
             }
 
@@ -199,9 +216,7 @@ fun DaemonDetailScreen(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     ),
-                ) {
-                    Text("Vanish daemon")
-                }
+                ) { Text("Vanish daemon") }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -213,8 +228,9 @@ fun DaemonDetailScreen(
             title = { Text("Vanish ${daemon.name}?") },
             text = {
                 Text(
-                    "This removes the daemon and all of its quests, completed " +
-                        "or not. The work it remembers will be gone."
+                    "This removes the daemon, all of its boons, and all of " +
+                        "its quests — completed or not. The work it remembers " +
+                        "will be gone."
                 )
             },
             confirmButton = {
@@ -227,6 +243,99 @@ fun DaemonDetailScreen(
                 TextButton(onClick = { showVanishConfirm = false }) { Text("Cancel") }
             }
         )
+    }
+
+    if (showAddBoon) {
+        AddBoonDialog(
+            onDismiss = { showAddBoon = false },
+            onAdd = { text, count ->
+                viewModel.addBoon(text, count)
+                showAddBoon = false
+            },
+        )
+    }
+
+    pendingDeleteBoonId?.let { id ->
+        val boon = state.boons.firstOrNull { it.id == id }
+        AlertDialog(
+            onDismissRequest = { pendingDeleteBoonId = null },
+            title = { Text("Delete this boon?") },
+            text = {
+                Text(
+                    text = boon?.let { "“${it.text}” — ${it.count} available." }
+                        ?: "Delete this boon?",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteBoon(id)
+                    pendingDeleteBoonId = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteBoonId = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showAddMajor) {
+        AddMajorDialog(
+            onDismiss = { showAddMajor = false },
+            onAdd = { title ->
+                viewModel.addMajor(title)
+                showAddMajor = false
+            },
+        )
+    }
+
+    addingMinorForMajor?.let { majorId ->
+        AddMinorDialog(
+            onDismiss = { addingMinorForMajor = null },
+            onAdd = { title, cadence, weight ->
+                viewModel.addMinor(majorId, title, cadence, weight)
+                addingMinorForMajor = null
+            },
+        )
+    }
+
+    deletePreview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDeleteMajor,
+            title = { Text("Delete “${preview.title}”?") },
+            text = {
+                Text(
+                    if (preview.totalMinors == 0)
+                        "No minors recorded under this quest."
+                    else
+                        "${preview.completedMinors} of ${preview.totalMinors} minors complete. " +
+                            "The major and all its minors will be removed."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmDeleteMajor) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelDeleteMajor) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+// ---- Sub-composables ----
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = title, style = MaterialTheme.typography.headlineSmall)
+        TextButton(onClick = onAction) { Text(actionLabel) }
     }
 }
 
@@ -264,9 +373,43 @@ private fun LevelSection(
 }
 
 @Composable
-private fun MajorWithMinors(
-    repository: PantheonRepository,
+private fun BoonRow(boon: Boon, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = boon.text, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "${boon.count} available",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete boon")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MajorCard(
     major: MajorQuest,
+    grantsBoonText: String?,
+    repository: PantheonRepository,
+    onAddMinor: () -> Unit,
+    onDeleteMajor: () -> Unit,
+    onDeleteMinor: (Long) -> Unit,
 ) {
     val minors by remember(major.id) {
         repository.observeMinors(major.id)
@@ -284,25 +427,47 @@ private fun MajorWithMinors(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = major.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (major.completed)
+                            "completed"
+                        else
+                            "${major.progressCount}/${major.thresholdCount}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (major.completed)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onDeleteMajor) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete major quest")
+                }
+            }
+            if (!grantsBoonText.isNullOrBlank()) {
                 Text(
-                    text = major.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = if (major.completed) "completed" else "${major.progressCount}/${major.thresholdCount}",
+                    text = "→ grants “$grantsBoonText”",
                     style = MaterialTheme.typography.labelLarge,
-                    color = if (major.completed)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (minors.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 minors.forEach { minor ->
-                    MinorRow(minor)
+                    MinorRow(minor = minor, onDelete = { onDeleteMinor(minor.id) })
+                }
+            }
+            if (!major.completed) {
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onAddMinor) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.padding(end = 4.dp))
+                    Text("Add minor")
                 }
             }
         }
@@ -310,33 +475,175 @@ private fun MajorWithMinors(
 }
 
 @Composable
-private fun MinorRow(minor: MinorQuest) {
+private fun MinorRow(minor: MinorQuest, onDelete: () -> Unit) {
     val mark = when {
         minor.completed -> "✓"
         minor.cadence == MinorQuest.CADENCE_DAILY -> "↻"
         else -> "○"
     }
     val date = minor.lastCompletedAt?.let { dateFormatter.format(Date(it)) }
+    val weightSuffix = if (minor.weight > 1) "  +${minor.weight}" else ""
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "$mark  ${minor.title}",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        if (date != null) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = date,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "$mark  ${minor.title}$weightSuffix",
+                style = MaterialTheme.typography.bodyMedium,
             )
+            if (date != null) {
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = "Delete minor")
         }
     }
+}
+
+// ---- Add dialogs ----
+
+@Composable
+private fun AddBoonDialog(
+    onDismiss: () -> Unit,
+    onAdd: (text: String, count: Int) -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf("") }
+    var countText by rememberSaveable { mutableStateOf("0") }
+    val count = countText.toIntOrNull() ?: 0
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Author a new boon") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Boon text") },
+                    placeholder = { Text("e.g. A guilt-free rest day") },
+                )
+                OutlinedTextField(
+                    value = countText,
+                    onValueChange = { v -> countText = v.filter { it.isDigit() }.take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Initial count") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(text, count) },
+                enabled = text.isNotBlank(),
+            ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun AddMajorDialog(
+    onDismiss: () -> Unit,
+    onAdd: (title: String) -> Unit,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add a major quest") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                )
+                Text(
+                    text = "Closes after 3 contributions by default. " +
+                        "Grants 1 of the daemon's first boon on close.",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(title) },
+                enabled = title.isNotBlank(),
+            ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMinorDialog(
+    onDismiss: () -> Unit,
+    onAdd: (title: String, cadence: String, weight: Int) -> Unit,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var cadence by rememberSaveable { mutableStateOf(MinorQuest.CADENCE_ONE_OFF) }
+    var weightText by rememberSaveable { mutableStateOf("1") }
+    val weight = weightText.toIntOrNull()?.coerceIn(1, 9) ?: 1
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add a minor quest") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                )
+                Text(
+                    text = "Cadence",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = cadence == MinorQuest.CADENCE_ONE_OFF,
+                        onClick = { cadence = MinorQuest.CADENCE_ONE_OFF },
+                        label = { Text("One-off") },
+                    )
+                    FilterChip(
+                        selected = cadence == MinorQuest.CADENCE_DAILY,
+                        onClick = { cadence = MinorQuest.CADENCE_DAILY },
+                        label = { Text("Daily") },
+                    )
+                }
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { v -> weightText = v.filter { it.isDigit() }.take(1) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Weight (1–9, how much this advances the major)") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(title, cadence, weight) },
+                enabled = title.isNotBlank(),
+            ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 private val dateFormatter = SimpleDateFormat("MMM d", Locale.getDefault())

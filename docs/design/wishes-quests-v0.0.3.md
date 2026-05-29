@@ -1,124 +1,142 @@
-# v0.0.3 — Quest CRUD, Multi-boon Wishes, Decoupled Economics
+# v0.0.3 — Quest CRUD, Multi-boon Wishes, Decoupled Economics (post-council)
 
-> Status: pre-council. Iterates on `daemons-and-quests.md` v2. The product
-> thesis is unchanged; this doc covers six concrete mechanic changes the
-> user requested after using v0.0.2.
+> Status: post-council revision. Iterates on `daemons-and-quests.md`
+> v2. The pre-council draft proposed exposing every knob; the council
+> (Demolisher, Skeptic, Architect in particular) argued that exposed
+> knobs corrode the metaphor even when defaults are sane. This
+> revision ships the user's six asks at the **model layer**, trims
+> the configurability **surface**, and lays groundwork for v0.0.4
+> without paying the loot-table tax today.
 
-## Feature set
+## User asks
 
-### A. Quest CRUD on demand
-- **Add** a major quest at any time from the daemon detail screen.
-- **Add** a minor quest under any open major from detail.
-- **Delete** a major (cascades to minors) or a single minor.
-- Edit deferred — for v0.0.3, delete + re-add is the workflow for renames.
+1. Add major + minor quests as I wish.
+2. Choose one-off vs repeating at minor creation.
+3. Confirm before spending a wish.
+4. Several wishes per daemon.
+5. Customize how much a quest advances a major.
+6. Level decoupled from wish count. Defaults customizable.
 
-### B. Cadence chooser at minor creation
-- ONE_OFF (default) or DAILY (recurring once per local day).
-- Cadence already exists on the entity; this just exposes it in the form.
+## What ships
 
-### C. Customizable quest weight
-- Each minor contributes `weight` (default **1**) to its parent major's
-  progress on completion.
-- Each major has `thresholdCount` (default **3**). The summoning ritual
-  keeps its existing override (threshold = count of minors authored).
+### A. Quest CRUD — full
+- Add major (title only — threshold hardcoded to 3 for added majors).
+- Add minor (title + cadence + weight stepper).
+- Delete major (cascade to minors). Confirm dialog states "X of Y
+  minors complete" so the cost is visible.
+- Delete minor. No refund of past contributions to the parent
+  major's `progressCount` for now — see "Accepted limitations".
+- **Blocked:** adding minors to a major that's already completed (the
+  Architect's loop-hole guard).
 
-### D. Multiple boons per daemon
-- New entity `Boon(id, daemonId, text, count, createdAt)`. A daemon
-  has 1+ boons.
-- The summoning ritual still authors **one** boon (no change there).
-- Detail screen exposes a Boons section with add/delete.
-- Spending UI shows all boons with `count > 0`; the user picks one.
+### B. Cadence chooser — full
+- Radio at minor creation: **ONE_OFF** (default) or **DAILY**.
 
-### E. Level / wish decoupling
-- Level stays derived from completed-major count. **No change.**
-- Each major specifies its **wish reward** at creation:
-  - `wishBoonId: Long?` — which boon completing this major fills.
-    `NULL` = no wish granted, level-up only.
-  - `wishRewardCount: Int = 1` — how many.
-- Defaults at major creation: `wishBoonId = the daemon's first boon`,
-  `wishRewardCount = 1`. Identical visible behavior to v0.0.2 unless
-  the user overrides.
+### C. Customizable weight — partial
+- **Ships:** minor weight stepper at creation (default 1, range 1–9).
+- **Cut from UI:** major threshold stepper. Hardcoded 3 for added
+  majors; summoning keeps its existing default (threshold = number of
+  authored minors).
+- **Rationale:** the council's Demolisher and Skeptic agree: a
+  threshold stepper *teaches* the user the number is arbitrary,
+  which collapses the ritual frame. Weight is conceptually cheaper
+  ("how much does this matter?") and survives the test.
 
-### F. Confirm before spending
-- Tapping the wish chip opens a picker listing every boon with
-  `count > 0`, each row showing `boon text · N available`.
-- Tapping a boon row reveals an explicit **Spend** button. No
-  silent-on-tap.
+### D. Multiple boons per daemon — model + minimal UI
+- New entity `Boon(id, daemonId, text, count, createdAt)`.
+- Summoning still authors **one** boon (no change).
+- Detail screen exposes a **Boons** section: add (text + initial
+  count, default 0) and delete (confirm). No edit; delete + re-add.
+- Spending picker shows every boon with `count > 0`. Even when a
+  daemon has only one boon, the picker still appears as a single-row
+  confirmation — per the Believer, the picker *is* the ritual surface.
+
+### E. Level / wish decoupling — model only
+- Columns ship: `major_quests.wishBoonId` (Long?, FK to `boons` with
+  `ON DELETE SET NULL`) and `major_quests.wishRewardCount` (Int = 1).
+- **Cut from UI:** per-major reward config. At major creation we
+  default `wishBoonId = the daemon's first boon` and
+  `wishRewardCount = 1`. No stepper, no boon dropdown, no "None"
+  option in v0.0.3.
+- **Rationale:** the Architect cut the stepper as a knob without a
+  use case; the Demolisher called per-major reward config the worst
+  Habitica-drift offender. The Believer's point — that decoupling
+  matters — is honored by the column existing; v0.0.4 exposes it
+  once a user actually asks for a no-wish major.
+
+### F. Confirm before spend — full
+- Tapping the wish chip opens a picker dialog listing every boon
+  with `count > 0`, each row showing text + `N available` + an
+  explicit **Spend** button.
+- Apotheosis dialog names the granted boon ("As promised — *<boon
+  text>*.") — Ally polish #5.
+- Spend wrapped in a Room `@Transaction` with a `count > 0` guard
+  per the Architect's race note.
 
 ## Data migration (1 → 2)
 
-Non-destructive. Runs once on first launch after the upgrade.
+The Architect insisted: byte-for-byte match against Room's generated
+v2 schema. We enable `exportSchema = true`, set
+`ksp { arg("room.schemaLocation", "${projectDir}/schemas") }` and
+commit the v2 JSON. The migration itself:
 
-```sql
-CREATE TABLE boons (
-  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  daemonId INTEGER NOT NULL,
-  text TEXT NOT NULL,
-  count INTEGER NOT NULL,
-  createdAt INTEGER NOT NULL,
-  FOREIGN KEY(daemonId) REFERENCES daemons(id) ON DELETE CASCADE
-);
-CREATE INDEX index_boons_daemonId ON boons(daemonId);
+1. `PRAGMA foreign_keys = OFF` at top, `PRAGMA foreign_key_check` at
+   bottom (the documented Room recipe).
+2. Create `boons` (matches the entity's generated schema exactly).
+3. Seed `boons` from each existing daemon's `(boonText,
+   wishesAvailable, createdAt)`.
+4. Recreate `major_quests` to add `wishBoonId` (FK SET NULL) and
+   `wishRewardCount` (default 1); set `wishBoonId = first boon of
+   the major's daemon` during copy.
+5. Recreate `daemons` without `boonText` / `wishesAvailable`.
 
-INSERT INTO boons (daemonId, text, count, createdAt)
-  SELECT id, boonText, wishesAvailable, createdAt FROM daemons;
+Manual table recreation (vs. naked `ALTER ... ADD ... REFERENCES`)
+because SQLite's column-add with FK is inert on existing rows and
+fails Room's schema validator.
 
-ALTER TABLE major_quests ADD COLUMN wishBoonId INTEGER REFERENCES boons(id) ON DELETE SET NULL;
-ALTER TABLE major_quests ADD COLUMN wishRewardCount INTEGER NOT NULL DEFAULT 1;
+## Polish adopted from the Ally
 
-UPDATE major_quests SET wishBoonId = (
-  SELECT id FROM boons WHERE boons.daemonId = major_quests.daemonId LIMIT 1
-);
+- Apotheosis dialog names the boon granted.
+- Major card shows a subtle "→ grants *<boon text>*" line when the
+  major has a `wishBoonId`.
 
--- Recreate daemons sans the legacy boon columns
-CREATE TABLE daemons_new (
-  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  name TEXT NOT NULL,
-  archetype TEXT NOT NULL,
-  voicePreset TEXT NOT NULL,
-  createdAt INTEGER NOT NULL
-);
-INSERT INTO daemons_new SELECT id, name, archetype, voicePreset, createdAt FROM daemons;
-DROP TABLE daemons;
-ALTER TABLE daemons_new RENAME TO daemons;
-```
+## Polish deferred
 
-`exportSchema = true` from here forward; v2 schema JSON committed.
+- In-voice "Spend" copy (Ally #1) — needs a new voice slot per
+  preset; defer to v0.0.4 alongside reconciliation beats.
+- Daemon-voice prompt when authoring boons (Ally #2) — uses templated
+  text in v0.0.3, voice integration later.
 
-## UX defaults — explicit list
+## Architect risks honored
 
-| Surface | Default | Override |
-|---|---|---|
-| Minor cadence at creation | ONE_OFF | Radio: ONE_OFF / DAILY |
-| Minor weight | 1 | Number stepper |
-| Major threshold | 3 | Number stepper |
-| Major wish reward boon | daemon's first boon | Dropdown incl. "None" |
-| Major wish reward count | 1 | Number stepper |
-| Boon initial count | 0 | Number stepper |
-| Wish spend | requires explicit Spend tap | n/a (no skip) |
+- Migration uses `runInTransaction` + `PRAGMA foreign_keys=off`.
+- Recreate-table for `daemons` and `major_quests`, both matching
+  Room's generated v2 schema byte-for-byte.
+- Spend wrapped in `@Transaction` with `count > 0` guard.
+- Adding minors to a completed major is disabled in UI (`+ minor`
+  button hidden when `major.completed`).
+- Delete-major dialog states the progress that will be lost.
 
-## Open questions for council
+## Accepted limitations (deferred to v0.0.4)
 
-1. **Picker for one boon** — when a daemon has only one boon with
-   `count > 0`, do we still force the boon-picker step or fast-path to
-   confirm? Forcing is consistent; fast-path is friendlier. Lean
-   towards forcing for predictability.
-2. **Major threshold default of 3** — is this empirically right, or
-   should it match "number of minors authored so far on this major"
-   like summoning does?
-3. **"None" reward option** — is it useful enough to expose, or does
-   it just confuse the form? (Use case: a major that's pure narrative
-   /level chase, no wish.) Lean towards keeping; it's the entire
-   reason for decoupling.
-4. **Boon `count` is unbounded** — could the user inflate wishes by
-   adding boons with high initial counts? Yes, intentionally — this
-   is a user-authored economy, not a guarded one. Per design v2 we
-   accepted self-cheatability.
+- **Deleting a DAILY minor that has contributed** leaves prior
+  contributions in `major.progressCount`. Clean refund requires a
+  per-minor completion counter; out of scope.
+- **No undo** on quest or boon delete. The Skeptic warned about
+  history loss — for v0.0.3, the confirmation dialog is the safety
+  net; soft-delete + restore is v0.0.4.
+- **MigrationTestHelper instrumented test** — recommended by the
+  Architect; not wired up in v0.0.3 because we don't yet have any
+  test infrastructure. Tracked as a follow-up.
 
-## Out of scope for v0.0.3
-- Editing quest titles, thresholds, or cadences (delete + re-add)
-- Cadences beyond ONE_OFF + DAILY (WEEKLY, etc.)
-- Daily quest targets (e.g., "3× per day")
-- Cross-daemon wish references
-- Failure-handling tonal decay
-- Multi-language voice-preset variants
+## Out of scope for v0.0.3 (Demolisher cuts honored)
+
+- Per-major `wishRewardCount` UI stepper.
+- Per-major `wishBoonId` UI dropdown.
+- Per-major `thresholdCount` UI stepper for added majors.
+- "None" wish-reward option.
+- Cadences beyond ONE_OFF + DAILY.
+- Editing quest titles, threshold, weight, or boon text.
+- Recompute-on-write for `progressCount`.
+- Cross-daemon wish references.
+- Failure-handling tonal decay.
