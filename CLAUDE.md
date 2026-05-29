@@ -17,12 +17,21 @@ decisions; this file wins for engineering conventions.
 
 ## Project status
 
-Scaffold is in place. The app builds, runs, and ships the v1 MVP loop:
+Scaffold is in place. The app builds, runs, and ships:
 
-- Guided 6-step **summoning ritual** that creates a daemon + first major
-  quest + minor quests + boon.
+- Guided 6-step **summoning ritual** (state preserved across rotation /
+  process death via `rememberSaveable`) that creates a daemon + first
+  major quest + minor quests + boon.
 - **Daily view** listing today's open minor quests grouped by daemon,
-  each greeted in the daemon's voice. Tap to complete.
+  each greeted in the daemon's voice. Tap to complete. Top-bar `+`
+  re-enters the summoning ritual to add another daemon.
+- **Per-daemon level bar** in the Daily card and on the detail screen:
+  fill ratio = the most-progressed open major's `progressCount /
+  thresholdCount` (closing it = +1 level). Empty when no open majors.
+- **Daemon detail screen** (tap the tune icon on a daemon card): edit
+  name / archetype / voice preset / boon; full quest history (all
+  majors + minors, completed and open); destructive **Vanish daemon**
+  with confirmation (cascades to quests via the existing FK).
 - **Apotheosis** on major-quest completion: derived level-up, +1 wish,
   in-voice dialog.
 - **Wish/boon** spending via the chip in the daemon's header.
@@ -34,7 +43,8 @@ Not yet implemented (deliberately deferred per design v2):
 - Repeatable-minor cadence beyond `DAILY`
 - Failure-handling tonal decay (greeting/completion lines stay neutral
   for now; reconciliation beats not wired up)
-- Settings, daemon editing/archiving, more than one major-quest workflow
+- Adding / editing / removing quests on an existing daemon (only the
+  daemon's own fields are editable today)
 - Unit + UI tests (only the scaffolding directories exist)
 
 ## Tech stack
@@ -70,8 +80,10 @@ lifegame/
 │       │   ├── domain/                  # VoicePreset, PantheonRepository
 │       │   └── ui/                      # theme + per-screen packages
 │       │       ├── nav/                 # navigation graph
+│       │       ├── common/              # cross-screen composables
 │       │       ├── summoning/           # onboarding ritual
-│       │       └── daily/               # today's quests
+│       │       ├── daily/               # today's quests
+│       │       └── detail/              # daemon edit + history + vanish
 │       └── res/
 ├── docs/design/                         # design docs (v1, v2…)
 ├── gradle/

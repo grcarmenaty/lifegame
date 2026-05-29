@@ -12,6 +12,9 @@ interface DaemonDao {
     @Query("SELECT * FROM daemons ORDER BY createdAt ASC")
     fun observeAll(): Flow<List<Daemon>>
 
+    @Query("SELECT * FROM daemons WHERE id = :id")
+    fun observe(id: Long): Flow<Daemon?>
+
     @Query("SELECT COUNT(*) FROM daemons")
     suspend fun count(): Int
 
@@ -23,4 +26,7 @@ interface DaemonDao {
 
     @Update
     suspend fun update(daemon: Daemon)
+
+    @Query("DELETE FROM daemons WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

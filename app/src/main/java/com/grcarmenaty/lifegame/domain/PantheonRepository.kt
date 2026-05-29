@@ -20,6 +20,8 @@ class PantheonRepository(
 ) {
     fun observeDaemons(): Flow<List<Daemon>> = daemonDao.observeAll()
 
+    fun observeDaemon(id: Long): Flow<Daemon?> = daemonDao.observe(id)
+
     suspend fun daemonCount(): Int = daemonDao.count()
 
     suspend fun getDaemon(id: Long): Daemon? = daemonDao.getById(id)
@@ -29,6 +31,26 @@ class PantheonRepository(
 
     fun observeMinors(majorId: Long): Flow<List<MinorQuest>> =
         questDao.observeMinorsForMajor(majorId)
+
+    suspend fun updateDaemon(
+        id: Long,
+        name: String,
+        archetype: String,
+        voicePreset: VoicePreset,
+        boonText: String,
+    ) {
+        val existing = daemonDao.getById(id) ?: return
+        daemonDao.update(
+            existing.copy(
+                name = name,
+                archetype = archetype,
+                voicePreset = voicePreset.name,
+                boonText = boonText,
+            )
+        )
+    }
+
+    suspend fun vanishDaemon(id: Long) = daemonDao.deleteById(id)
 
     /** Derived per design v2: level starts at 1, +1 per completed major. */
     suspend fun levelOf(daemonId: Long): Int =

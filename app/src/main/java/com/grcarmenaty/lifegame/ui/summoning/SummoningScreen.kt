@@ -10,75 +10,91 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
+import com.grcarmenaty.lifegame.ui.common.VoicePresetPicker
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SummoningScreen(
     repository: PantheonRepository,
     onSummoned: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var step by remember { mutableStateOf(0) }
 
-    var archetype by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var voice by remember { mutableStateOf(VoicePreset.GENTLE_MENTOR) }
-    var majorTitle by remember { mutableStateOf("") }
-    val minorTitles = remember { mutableStateListOf("", "", "") }
-    var boon by remember { mutableStateOf("") }
-    var summoning by remember { mutableStateOf(false) }
+    // rememberSaveable so configuration changes (rotation, dark-mode switch,
+    // process death) don't wipe the ritual mid-flow.
+    var step by rememberSaveable { mutableStateOf(0) }
+    var archetype by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var voiceKey by rememberSaveable { mutableStateOf(VoicePreset.GENTLE_MENTOR.name) }
+    var majorTitle by rememberSaveable { mutableStateOf("") }
+    var minor1 by rememberSaveable { mutableStateOf("") }
+    var minor2 by rememberSaveable { mutableStateOf("") }
+    var minor3 by rememberSaveable { mutableStateOf("") }
+    var boon by rememberSaveable { mutableStateOf("") }
+    var summoning by rememberSaveable { mutableStateOf(false) }
 
+    val voice = VoicePreset.fromKey(voiceKey)
+    val anyMinor = minor1.isNotBlank() || minor2.isNotBlank() || minor3.isNotBlank()
     val canAdvance = when (step) {
         0 -> archetype.isNotBlank()
         1 -> name.isNotBlank()
         2 -> true
         3 -> majorTitle.isNotBlank()
-        4 -> minorTitles.any { it.isNotBlank() }
+        4 -> anyMinor
         5 -> boon.isNotBlank()
         else -> false
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Summoning") },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cancel")
+                    }
+                },
+            )
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp)
+                .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text(
-                text = "Summoning",
-                style = MaterialTheme.typography.displayMedium,
-            )
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "Step ${step + 1} of 6",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(4.dp))
 
             when (step) {
                 0 -> Prompt(
@@ -107,7 +123,7 @@ fun SummoningScreen(
                     question = "How does it speak?",
                     helper = "Pick a voice. You can override individual lines later.",
                 ) {
-                    VoicePresetPicker(selected = voice, onSelect = { voice = it })
+                    VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
                 }
                 3 -> Prompt(
                     question = "What's one thing it wants from you in the next month?",
@@ -124,16 +140,26 @@ fun SummoningScreen(
                     question = "What are 2-3 small acts that would feed that?",
                     helper = "Each will be a minor quest. Leave any blank to skip.",
                 ) {
-                    minorTitles.forEachIndexed { i, value ->
-                        OutlinedTextField(
-                            value = value,
-                            onValueChange = { minorTitles[i] = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = if (i == 0) 0.dp else 8.dp),
-                            placeholder = { Text("Small act ${i + 1}") },
-                        )
-                    }
+                    OutlinedTextField(
+                        value = minor1,
+                        onValueChange = { minor1 = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Small act 1") },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = minor2,
+                        onValueChange = { minor2 = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Small act 2") },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = minor3,
+                        onValueChange = { minor3 = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Small act 3") },
+                    )
                 }
                 5 -> Prompt(
                     question = "What favor will it grant you for the work?",
@@ -153,9 +179,7 @@ fun SummoningScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 if (step > 0) {
-                    TextButton(onClick = { step-- }, enabled = !summoning) {
-                        Text("Back")
-                    }
+                    TextButton(onClick = { step-- }, enabled = !summoning) { Text("Back") }
                 } else {
                     Spacer(Modifier.height(1.dp))
                 }
@@ -172,7 +196,7 @@ fun SummoningScreen(
                                     voicePreset = voice,
                                     boonText = boon.trim(),
                                     firstMajorTitle = majorTitle.trim(),
-                                    firstMinorTitles = minorTitles
+                                    firstMinorTitles = listOf(minor1, minor2, minor3)
                                         .map { it.trim() }
                                         .filter { it.isNotBlank() },
                                 )
@@ -185,6 +209,7 @@ fun SummoningScreen(
                     Text(if (step < 5) "Next" else "Summon")
                 }
             }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -196,10 +221,7 @@ private fun Prompt(
     content: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = question,
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        Text(text = question, style = MaterialTheme.typography.headlineSmall)
         Text(
             text = helper,
             style = MaterialTheme.typography.bodyMedium,
@@ -207,50 +229,5 @@ private fun Prompt(
         )
         Spacer(Modifier.height(4.dp))
         content()
-    }
-}
-
-@Composable
-private fun VoicePresetPicker(
-    selected: VoicePreset,
-    onSelect: (VoicePreset) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        VoicePreset.entries.forEach { preset ->
-            val isSelected = preset == selected
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier
-                    .fillMaxWidth(),
-                onClick = { onSelect(preset) },
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = preset.displayName,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isSelected)
-                            MaterialTheme.colorScheme.onPrimary
-                        else
-                            MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "“${preset.sample}”",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Start,
-                        color = if (isSelected)
-                            MaterialTheme.colorScheme.onPrimary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
     }
 }

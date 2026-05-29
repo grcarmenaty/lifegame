@@ -28,6 +28,8 @@ data class DailyState(val daemons: List<DaemonDailyBlock> = emptyList())
 data class DaemonDailyBlock(
     val daemon: Daemon,
     val level: Int,
+    val levelProgress: Float,
+    val leadingMajorTitle: String?,
     val greeting: String,
     val openMinors: List<MinorEntry>,
 )
@@ -65,12 +67,23 @@ class DailyViewModel(
         val greetingSeed = daemon.id + todaySeed()
         return repository.observeMajors(daemon.id).flatMapLatest { majors ->
             val openMajors = majors.filter { !it.completed }
+            val leading = openMajors.maxByOrNull {
+                it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1)
+            }
+            val levelProgress = leading?.let {
+                (it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1))
+                    .coerceIn(0f, 1f)
+            } ?: 0f
+            val leadingTitle = leading?.title
+
             if (openMajors.isEmpty()) {
                 flow {
                     emit(
                         DaemonDailyBlock(
                             daemon = daemon,
                             level = repository.levelOf(daemon.id),
+                            levelProgress = levelProgress,
+                            leadingMajorTitle = leadingTitle,
                             greeting = voice.greeting(greetingSeed),
                             openMinors = emptyList(),
                         )
@@ -87,6 +100,8 @@ class DailyViewModel(
                     DaemonDailyBlock(
                         daemon = daemon,
                         level = repository.levelOf(daemon.id),
+                        levelProgress = levelProgress,
+                        leadingMajorTitle = leadingTitle,
                         greeting = voice.greeting(greetingSeed),
                         openMinors = lists.flatMap { it },
                     )

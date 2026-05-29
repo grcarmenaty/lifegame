@@ -13,17 +13,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.ui.daily.DailyScreen
+import com.grcarmenaty.lifegame.ui.detail.DaemonDetailScreen
 import com.grcarmenaty.lifegame.ui.summoning.SummoningScreen
 
 private object Routes {
     const val LOADING = "loading"
     const val SUMMONING = "summoning"
     const val DAILY = "daily"
+    const val DETAIL = "daemon/{id}"
+
+    fun detail(id: Long) = "daemon/$id"
 }
 
 @Composable
@@ -52,14 +58,40 @@ fun LifegameNavGraph(repository: PantheonRepository) {
             SummoningScreen(
                 repository = repository,
                 onSummoned = {
+                    // Works for both entry points: from Loading (no Daily on
+                    // the stack yet) we push Daily; from Daily (+) we pop
+                    // Summoning and reuse the existing Daily underneath.
                     nav.navigate(Routes.DAILY) {
                         popUpTo(Routes.SUMMONING) { inclusive = true }
+                        launchSingleTop = true
                     }
-                }
+                },
+                onCancel = {
+                    // If there's nothing behind summoning (first-run cancel),
+                    // popBackStack returns false and the app exits — acceptable.
+                    if (!nav.popBackStack()) {
+                        // First-run cancel — nothing to fall back to; nav stays put.
+                    }
+                },
             )
         }
         composable(Routes.DAILY) {
-            DailyScreen(repository = repository)
+            DailyScreen(
+                repository = repository,
+                onAddDaemon = { nav.navigate(Routes.SUMMONING) },
+                onOpenDetail = { id -> nav.navigate(Routes.detail(id)) },
+            )
+        }
+        composable(
+            route = Routes.DETAIL,
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+        ) { entry ->
+            val id = entry.arguments?.getLong("id") ?: return@composable
+            DaemonDetailScreen(
+                repository = repository,
+                daemonId = id,
+                onBack = { nav.popBackStack() },
+            )
         }
     }
 }
