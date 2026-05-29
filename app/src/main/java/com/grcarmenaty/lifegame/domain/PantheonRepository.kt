@@ -8,6 +8,9 @@ import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -216,6 +219,68 @@ class PantheonRepository(
     }
 
     suspend fun deleteBoon(boonId: Long) = boonDao.deleteById(boonId)
+
+    // ---- Backup / restore / reset ----
+
+    private val json = Json {
+        prettyPrint = true
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
+
+    suspend fun exportToJson(appVersion: String): String {
+        val daemons = daemonDao.getAll().map { d ->
+            val boons = boonDao.getForDaemon(d.id)
+            val majors = questDao.getMajorsForDaemon(d.id).map { m ->
+                MajorBackup(major = m, minors = questDao.getMinorsForMajor(m.id))
+            }
+            DaemonBackup(daemon = d, boons = boons, majorQuests = majors)
+        }
+        return json.encodeToString(
+            PantheonBackup(
+                exportedAt = System.currentTimeMillis(),
+                appVersion = appVersion,
+                daemons = daemons,
+            )
+        )
+    }
+
+    /**
+     * Replace semantics: wipe the current pantheon, then load the
+     * backup. IDs are preserved so `wishBoonId` references survive
+     * the round-trip; SQLite's autoincrement sequence updates to
+     * `max(id)` so subsequent insertions don't collide.
+     */
+    suspend fun importFromJson(jsonText: String): ImportResult {
+        val backup = try {
+            json.decodeFromString<PantheonBackup>(jsonText)
+        } catch (e: SerializationException) {
+            return ImportResult.Error("Backup is malformed: ${e.message ?: "parse failed"}")
+        } catch (e: IllegalArgumentException) {
+            return ImportResult.Error("Backup is malformed: ${e.message ?: "invalid"}")
+        }
+        if (backup.formatVersion != PantheonBackup.CURRENT_FORMAT_VERSION) {
+            return ImportResult.Error(
+                "Backup format v${backup.formatVersion} not supported by this build " +
+                    "(expected v${PantheonBackup.CURRENT_FORMAT_VERSION})."
+            )
+        }
+        reset()
+        backup.daemons.forEach { dwc ->
+            daemonDao.insert(dwc.daemon)
+            dwc.boons.forEach { boonDao.insert(it) }
+            dwc.majorQuests.forEach { mwm ->
+                questDao.insertMajor(mwm.major)
+                mwm.minors.forEach { questDao.insertMinor(it) }
+            }
+        }
+        return ImportResult.Success(daemonCount = backup.daemons.size)
+    }
+
+    suspend fun reset() {
+        // FK CASCADE deletes boons, major_quests, and minor_quests for us.
+        daemonDao.deleteAll()
+    }
 
     private fun sameLocalDay(a: Long, b: Long): Boolean {
         val tz = TimeZone.getDefault()

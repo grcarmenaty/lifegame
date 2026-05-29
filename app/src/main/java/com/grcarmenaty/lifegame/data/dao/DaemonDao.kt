@@ -12,6 +12,9 @@ interface DaemonDao {
     @Query("SELECT * FROM daemons ORDER BY createdAt ASC")
     fun observeAll(): Flow<List<Daemon>>
 
+    @Query("SELECT * FROM daemons ORDER BY createdAt ASC")
+    suspend fun getAll(): List<Daemon>
+
     @Query("SELECT * FROM daemons WHERE id = :id")
     fun observe(id: Long): Flow<Daemon?>
 
@@ -29,4 +32,7 @@ interface DaemonDao {
 
     @Query("DELETE FROM daemons WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM daemons")
+    suspend fun deleteAll()
 }

@@ -47,6 +47,13 @@ Scaffold is in place. The app builds, runs, and ships:
   daemon's header: lists every boon with `count > 0` and an explicit
   Spend button per row. Transactional `count > 0` guard against
   double-spend.
+- **Settings screen** (gear icon on the Daily top bar): **Export**
+  pantheon to a user-picked JSON file via Storage Access Framework
+  (`ACTION_CREATE_DOCUMENT`); **Import** from a JSON backup (replaces
+  current pantheon, confirm dialog up-front, `ACTION_OPEN_DOCUMENT`);
+  **Reset** wipes the database (confirm dialog). Backup format is
+  versioned via `PantheonBackup.formatVersion`; IDs are preserved
+  across export → import so `wishBoonId` references survive.
 
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):
@@ -74,6 +81,9 @@ council):
 - **Jetpack Compose** with Material 3, Compose BOM `2024.12.01`.
 - **Navigation Compose** for the (currently 3-route) graph.
 - **Room 2.6.1** via **KSP** (`com.google.devtools.ksp`) — *not* kapt.
+- **kotlinx.serialization 1.7.3** for the JSON backup format. Room
+  entities carry `@Serializable` directly (single source of truth);
+  `BuildConfig.VERSION_NAME` stamps the export.
 - **Manual DI**: `LifegameApplication.repository` is the single source.
   No Hilt yet. Don't introduce it until a second component needs it.
 - **JDK 17** target; the CI matrix is JDK 17 on `ubuntu-latest`.
@@ -101,7 +111,8 @@ lifegame/
 │       │       ├── common/              # cross-screen composables
 │       │       ├── summoning/           # onboarding ritual
 │       │       ├── daily/               # today's quests
-│       │       └── detail/              # daemon edit + history + vanish
+│       │       ├── detail/              # daemon edit + history + vanish
+│       │       └── settings/            # export / import / reset
 │       └── res/
 ├── docs/design/                         # design docs (v1, v2…)
 ├── gradle/

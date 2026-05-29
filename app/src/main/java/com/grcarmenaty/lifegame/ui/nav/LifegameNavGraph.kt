@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.ui.daily.DailyScreen
 import com.grcarmenaty.lifegame.ui.detail.DaemonDetailScreen
+import com.grcarmenaty.lifegame.ui.settings.SettingsScreen
 import com.grcarmenaty.lifegame.ui.summoning.SummoningScreen
 
 private object Routes {
@@ -28,6 +29,7 @@ private object Routes {
     const val SUMMONING = "summoning"
     const val DAILY = "daily"
     const val DETAIL = "daemon/{id}"
+    const val SETTINGS = "settings"
 
     fun detail(id: Long) = "daemon/$id"
 }
@@ -80,6 +82,7 @@ fun LifegameNavGraph(repository: PantheonRepository) {
                 repository = repository,
                 onAddDaemon = { nav.navigate(Routes.SUMMONING) },
                 onOpenDetail = { id -> nav.navigate(Routes.detail(id)) },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
             )
         }
         composable(
@@ -90,6 +93,12 @@ fun LifegameNavGraph(repository: PantheonRepository) {
             DaemonDetailScreen(
                 repository = repository,
                 daemonId = id,
+                onBack = { nav.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                repository = repository,
                 onBack = { nav.popBackStack() },
             )
         }

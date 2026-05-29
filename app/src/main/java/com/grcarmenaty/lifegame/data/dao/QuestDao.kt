@@ -13,6 +13,9 @@ interface QuestDao {
     @Query("SELECT * FROM major_quests WHERE daemonId = :daemonId ORDER BY createdAt ASC")
     fun observeMajorsForDaemon(daemonId: Long): Flow<List<MajorQuest>>
 
+    @Query("SELECT * FROM major_quests WHERE daemonId = :daemonId ORDER BY createdAt ASC")
+    suspend fun getMajorsForDaemon(daemonId: Long): List<MajorQuest>
+
     @Query("SELECT COUNT(*) FROM major_quests WHERE daemonId = :daemonId AND completed = 1")
     suspend fun countCompletedMajorsForDaemon(daemonId: Long): Int
 
