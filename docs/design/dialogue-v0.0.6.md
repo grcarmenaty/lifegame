@@ -11,19 +11,17 @@
 >   scoped cooldowns, replacedBy load-time rewrite, predicate
 >   singletons, 24h fallback bug fix, LAPSE_REACTIVE cooldown, no
 >   first-launch explainer, mid-day-return pattern.
-> - **v5 (current) — post council round 4. IMPLEMENTATION-READY.**
->   Cuts `replacedBy` runtime rewrite (Architect + Demolisher
->   converge: dead code given lint). Fixes backup-voice-continuity
->   bug — bumps `PantheonBackup` to v2 carrying line_seen +
->   cooldown_play + daemon_state. Defines rigorous v0.0.7 trigger
->   (median, active-daemon def, screen_open counter instrumented in
->   v0.0.6). Pre-commits `v0.0.7-cutdown.draft.md` (Demolisher's
->   honest-trigger move). Batches state queries into one DAO call,
->   no in-memory cache (Architect's threading concern). Adds
->   `MinutesSinceLastForegroundAtLeast(180)` to mid-day-return
->   (Believer). Adds fallback-seed `daemonId + epochDay` (Ally).
->   Locks `recencyKey` enum order via unit test. Documents
->   deprecation playbook. Locks 6-PR implementation order.
+> - v5 — post council round 4. replacedBy runtime cut, PantheonBackup v2
+>   carrying dialogue state, rigorous v0.0.7 trigger, threading model,
+>   6-PR order.
+> - **v6 (current) — post council round 5. SIGNED OFF.** Three "ship
+>   it" verdicts (Believer, Architect, Demolisher); two precise
+>   additions accepted: Skeptic's immutable-id lint rule (j),
+>   Ally's "trigger cannot fire against v0.0.6" guarantee + PR4
+>   placeholder Talk affordance, Architect's `onResume` re-pick +
+>   source-level lint rule (i) implementation, Believer's PR4
+>   callout for the 180-min foreground guard. **Council process
+>   complete.** Implementation begins.
 
 ## Premise
 
@@ -612,7 +610,16 @@ tells evolve without touching engine logic.
     `cooldownGroup = LAPSE_REACTIVE_COOLDOWN` and
     `crossSurfaceCooldown = true`
   - (i) every ESSENTIAL + lifeEvent line declares an explicit
-    `preferredSurface` (default `EITHER` would be a bug here)
+    `preferredSurface` (default `EITHER` would be a bug here).
+    **Round 5 (Architect): implemented as source-level check** (KSP
+    or regex over line files), not runtime reflection — Kotlin can't
+    distinguish "author wrote `EITHER`" from "author omitted the
+    field." Lint runs against source, not against constructed
+    `DialogueLine` instances.
+  - (j) **Round 5 (Skeptic): `DialogueLine.id` is immutable across
+    releases.** Lint compares ids against `app/dialogue-ids/<prev>.txt`
+    and rejects any disappearance of a once-live id that wasn't
+    formally deprecated.
 - **`deprecated: Boolean` + `replacedBy: String?`** — kept as data;
   **runtime rewrite cut in v5** (round 4: Architect + Demolisher
   converge). Architect's argument was decisive: the lint already
@@ -628,8 +635,17 @@ tells evolve without touching engine logic.
    in-flight `replacedBy` references to `C` or undeprecating `B`.
 3. Lint must reject any line whose `requires` references a deprecated
    id (force authors to rewrite chains, not stack indirection).
-4. With these two rules, transitive `replacedBy` is unreachable.
-5. The engine never reads `replacedBy` — it's pure lint metadata.
+4. **Round 5 (Skeptic): `DialogueLine.id` is immutable across
+   releases.** Renames happen via the deprecate-and-replace pipeline,
+   never via in-place edit. Lint must compare ids against the
+   previous-release snapshot (committed as `app/dialogue-ids/<v>.txt`)
+   and reject any disappearance of a once-live id that wasn't
+   deprecated. Without this, `line_seen` rows from old backups become
+   orphans pointing at a vanished id — the engine treats them as
+   "never played" and supposedly-retired lines replay.
+5. With these three rules, transitive `replacedBy` is unreachable AND
+   backup voice continuity holds across version upgrades.
+6. The engine never reads `replacedBy` — it's pure lint metadata.
 - **`LineProvenance` debug overlay** in dev builds (round 3, Ally) —
   long-press a daemon line to see the resolved id and any
   `replacedBy` hops. Costs nothing, makes the deprecation pipeline
@@ -714,6 +730,34 @@ Six PRs, each shippable / revertable independently:
 - Cleanly separates the trigger metric: v0.0.6 baseline = pure
   inline; v0.0.6.1 adds the screen, screen_open_count starts
   ticking.
+
+**Round 5 (Ally) — explicit guarantee**: **the v0.0.7 cutdown trigger
+cannot fire against v0.0.6.** The trigger clock starts at v0.0.6.1
+ship. v0.0.6 contains no Conversation screen and therefore generates
+no screen-open data; comparing pre-screen telemetry against the
+trigger threshold would be incoherent. The 7-day settle-in + 14-day
+measurement window both begin at v0.0.6.1 release.
+
+**Round 5 (Ally) — placeholder Talk affordance in PR4**: v0.0.6
+ships the Talk button (on Daily card and detail header) as a visible
+affordance routing to a single archetype-styled card:
+`*the daemon is gathering thought. return soon.*` — no chat, no
+choices, no `markPlayed`. Sets the user's expectation that
+conversations exist *somewhere* without leaking a half-feature.
+Implementation: a `PlaceholderConversationScreen.kt` that v0.0.6.1
+replaces with `ConversationScreen.kt`. The button doesn't move; the
+behind-the-button screen swaps.
+
+**Round 5 (Architect) — additional implementation notes**:
+- **`ConversationScreen.onResume` re-pick after backgrounding**: if
+  the screen has been backgrounded > 30 seconds, on resume call
+  `pickFor` fresh so the daemon doesn't reply to a stale beat. Add
+  to PR #5 acceptance criteria.
+- **PR1 lint rule (i) implementation**: source-level KSP processor
+  or regex over `domain/dialogue/lines/*.kt` files, asserting any
+  line declared with `tier = LineTier.ESSENTIAL` *and* `lifeEvent =
+  true` carries an explicit `preferredSurface =` token in source.
+  Not runtime reflection.
 
 Author rate (round 4, Skeptic empirical estimate): 30-50 voice-loyal
 lines/day. ~3 weeks calendar to complete content authoring across
@@ -998,7 +1042,53 @@ progress acknowledged.
 - Whether 2-opens threshold is calibrated or arbitrary.
 - Whether pre-committed cutdown draft is forcing function or theater.
 
-### Round 5 — pending
+### Round 5 — sign-off
 
-Round 5 is the sign-off round. Deliverable: "ship it" OR "one
-specific thing to fix before implementation."
+**Final tally: three "ship it" verdicts, two precise additions.**
+
+- **Believer**: SHIP IT. Earned predicates over affinity held the
+  thesis. Backup format bump is right — Skeptic's alternative would
+  have re-stranger'd the daemon every restore. Protect-during-
+  implementation: the 180-min foreground guard on mid-day-return is
+  load-bearing; flag in PR4 description so it survives implementation
+  pressure.
+
+- **Ally**: ONE SPECIFIC THING. Make trigger-window cannot-fire-against
+  -v0.0.6 explicit. Add placeholder Talk affordance in PR4 so v0.0.6
+  doesn't read as unfulfilled promise. Calendar is 3.5 weeks, not 3
+  (PR4 needs a coherence-buffer + author rate math). **All adopted in
+  v6.**
+
+- **Architect**: SHIP IT. `PantheonBackup` v2 path clean (Daemon
+  entity unchanged, daemon_state is sibling). Single-DAO-call batching
+  works because `pickFor` runs per beat, not per screen-open — no
+  stale-read window beyond current line. Two implementation notes
+  added to PR scope (`onResume` re-pick, source-level lint).
+
+- **Skeptic**: ONE SPECIFIC THING. Add lint rule (j): `DialogueLine.id`
+  immutable across releases; rename via deprecate-and-replace only.
+  Prevents `line_seen` rows from old backups becoming orphans across
+  upgrades. **Adopted in v6.** Prediction for v0.0.7: median lands
+  0.6-1.2, cutdown fires, ~110 lines deleted, ambush survives as the
+  actual product.
+
+- **Demolisher**: SHIP IT. v5 did the two things demanded (kill
+  `replacedBy` runtime, pre-stage cutdown). Predicts screen dies in
+  v0.0.7 because ambush eats its reason to exist. Updated epitaph:
+  *"Built the screen with the cremation papers pre-signed. Either it
+  earns its keep or it gets the cleanest deletion in this repo's
+  history. Both outcomes are wins."*
+
+**v6 additions encoded:**
+- Lint rule (j) — immutable line ids; previous-release snapshot at
+  `app/dialogue-ids/<v>.txt`
+- Trigger-window guarantee: cannot fire against v0.0.6
+- Placeholder Talk affordance in PR4 routing to
+  `PlaceholderConversationScreen.kt`
+- PR1: lint rule (i) implementation must be source-level (KSP/regex)
+- PR5: `ConversationScreen.onResume` re-pick after > 30s background
+- PR4 description: flag 180-min foreground guard as load-bearing
+- Calendar revised to 3.5 weeks (PR4 + coherence pass)
+
+**No structural changes from v5. Council process complete.
+Implementation begins.**
