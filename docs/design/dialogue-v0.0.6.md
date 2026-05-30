@@ -5,13 +5,18 @@
 > - v1 — post-Hades research, pre-council. Flat predicate pool.
 > - v2 — post council round 1. Two consumers, affinity cut, cuts to
 >   `choice_log`, ChoiceTone, conditional templating, wall-clock lock.
-> - **v3 (current) — post council round 2.** Fixes the two-consumer
->   race bug (`preferredSurface`). Adds earned predicates for
->   intimacy gating (Believer). Adds `archetypeAllowsReactive`
->   whitelist (Skeptic). Drops DSL (Architect + Demolisher converge).
->   Drops animated thinking pauses (Demolisher). Tells move to
->   renderer (Architect). Adopts deprecation scaffolding now
->   (Ally + Skeptic).
+> - v3 — post council round 2. preferredSurface, earned predicates,
+>   archetypeWhitelist, DSL out, tells to renderer, deprecation scaffolding.
+> - **v4 (current) — post council round 3.** Closes Architect's leak
+>   paths (default-SCREEN for ESSENTIAL+lifeEvent, surface-scoped
+>   cooldowns, `replacedBy` resolved at engine load, predicate
+>   singletons, denormalized earned-predicate counters). Fixes
+>   Skeptic's 24h-fallback bug (`OR conversationsHad == 0`) and adds
+>   her cross-surface `LAPSE_REACTIVE` cooldown. Adopts Believer's
+>   "no first-launch explainer" (Skeptic + Demolisher concur).
+>   Adopts mid-day-return as its own pattern. Adopts Ally's
+>   DataStore-backed tell-cooldown and dev-build `LineProvenance`
+>   overlay. Documents v0.0.7 screen-cutdown trigger.
 
 ## Premise
 
@@ -100,6 +105,7 @@ data class DialogueLine(
     val stateRequirements: List<Predicate> = emptyList(),
     val cooldownGroup: String? = null,
     val cooldownPicks: Int? = null,
+    val crossSurfaceCooldown: Boolean = false,  // round 3: shared across surfaces
     val tellHint: TellStyle = TellStyle.NONE,   // hint to renderer; renderer picks the tell
     val choices: List<DialogueChoice> = emptyList(),
 
@@ -129,6 +135,15 @@ plays `ds_after_lapse` (ESSENTIAL) at 8am, the Conversation screen at
 8:01 sees it as played and opens with a filler. `preferredSurface =
 SCREEN` reserves life-event one-shots and multi-beat chains for the
 screen; inline queries filter them out. Same line ID, no fragmentation.
+
+**Round 3 (Architect): leak fix.** `EITHER`-flagged ESSENTIAL lines
+can still burn inline before the screen sees them. Fix:
+**`ESSENTIAL` + `lifeEvent = true` lines default to
+`preferredSurface = SCREEN`** unless explicitly overridden by the
+author. Enforced by the lint test, not by the data class default
+(which stays `EITHER` for clarity). Authors who want a life-event line
+in the inline track must explicitly write `preferredSurface = INLINE`
+or `EITHER` — making the intent visible at the call site.
 
 **Why `lifeEvent` + `recencyKey` split** (round 2, Architect): the v2
 ordinal-as-priority was brittle — "first apotheosis ever" should always
@@ -173,10 +188,23 @@ A small algebra of named predicates implementing
   `AfterLapse(min: Int)`, `WithWishesAvailable(min: Int)`,
   `AtLevelAtLeast(n: Int)`, `TimeOfDayIs(t)`,
   `MinorsCompletedTodayAtLeast(n)`,
+  `MinorsCompletedTodayIsZero`,            // for mid-day-return ambush
   `StreakAtLeast(days: Int)`, `DaysSinceLastConversationAtLeast(n)`,
   `ConversationsHadAtLeast(n)`,
   `DaysSinceFirstConversationAtLeast(n)`,
   `BoonSpentToday`.
+
+**Round 3 (Architect): predicate instances are object singletons** —
+`object AfterLapse1 : Predicate` not `class AfterLapse(1)` allocated
+per line. Saves thousands of redundant objects across the corpus. For
+parameterized predicates, intern small-arity instances in a registry:
+```kotlin
+internal val AfterLapse_1 = AfterLapse(1)
+internal val AfterLapse_2 = AfterLapse(2)
+internal val AfterLapse_3 = AfterLapse(3)
+```
+Authors reference the interned values; the engine never sees a fresh
+predicate allocation.
 
 **Earned predicates** (round 2, Believer): the vulnerability chain and
 similar "intimacy is earned" content gates on *costly action*, not
@@ -188,6 +216,12 @@ attendance:
 These are not gameable because the cost is real (the user has to
 actually do quests, actually spend wishes). They replace what affinity
 would have done in v0 / v1.
+
+**Round 3 (Architect): denormalized counters**. These predicates read
+`ctx.majorsClosedTotal: Int` and `ctx.wishesSpentTotal: Int`, both
+stored on `daemon_state` and incremented on the actual completion /
+spend event in the repository. Avoids N aggregate queries per Daily
+recomposition.
 
 **Reactive-predicate archetype gates** (round 2, Skeptic): some
 predicates carry a shame-amplifier risk. They declare which archetypes
@@ -206,6 +240,26 @@ Engine checks `predicate.archetypeWhitelist?.contains(ctx.archetypeKey) ?: true`
 during eligibility. Drill Sergeant can react to lapses; Gentle Mentor,
 Therapist, Hermit, Poet cannot — at the engine layer, by construction.
 Author cannot accidentally hand a shame line to the wrong daemon.
+
+**Round 3 (Skeptic): compound-shame fix.** `archetypeWhitelist` alone
+prevents the wrong archetype from reacting, but doesn't stop Drill
+Sergeant from firing four lapse-reactive lines in one session via
+different `cooldownGroup`s. Add a synthetic, cross-surface cooldown:
+```kotlin
+const val LAPSE_REACTIVE_COOLDOWN = "lapse_reactive_24h"
+```
+Every line whose predicates include `AfterLapse(_)` must declare
+`cooldownGroup = LAPSE_REACTIVE_COOLDOWN, cooldownPicks = 1,
+crossSurface = true`. The lint test enforces membership. Even Drill
+Sergeant cannot compound shame across one day or across surfaces.
+
+**Round 3 (Architect): predicate `archetypeWhitelist` shape.**
+`Set<String>?` on the predicate impl is acceptable for v0.0.6 even
+though it's "data masquerading as code." When a third reactive
+predicate appears (v0.0.7+), promote to a `ReactivePolicy` registry
+that maps predicate type → allowed archetype keys, loaded
+declaratively. Until then, the inline `Set<String>?` default-null is
+the cheapest correct shape.
 
 Add as content demands. Never grow the algebra speculatively.
 
@@ -281,11 +335,23 @@ The same-encounter lock for Consumer B (Conversation screen): the
 screen refuses a fresh open if no real activity (completed-minor,
 closed-major, spent-wish, summoned-daemon) has happened since
 `lastConversationAt`. Architect (round 2) flagged that pure
-action-gating could leave a daemon mute forever — so there's an
-absolute fallback: regardless of activity, the lock auto-releases
-after **24 hours**. Refused state shows a small archetype-styled
-banner ("`*pacing*` I've said my piece. Go.") with a single "Leave"
-action.
+action-gating could leave a daemon mute forever — so there's a
+release condition:
+
+```
+canOpenConversation =
+    activitySinceLastConversation
+    OR conversationsHad == 0           // round 3 (Skeptic): first-ever always passes
+```
+
+The round-3 Skeptic killed the unconditional 24h fallback because it
+rewarded absence — a user who completes zero quests for 23 hours then
+opens the screen would have gotten filler. The first-ever exception
+covers the only edge case where a daemon would otherwise be silent at
+the start (no activity history).
+
+Refused state shows a small archetype-styled banner
+("`*pacing*` I've said my piece. Go.") with a single "Leave" action.
 
 ### Persistence
 
@@ -294,36 +360,58 @@ no FK-add on existing rows).
 
 ```sql
 CREATE TABLE line_seen (
-  daemonId  INTEGER NOT NULL,
-  lineId    TEXT    NOT NULL,
+  daemonId     INTEGER NOT NULL,
+  lineId       TEXT    NOT NULL,
   lastPlayedAt INTEGER NOT NULL,
-  playCount INTEGER NOT NULL,
+  playCount    INTEGER NOT NULL,
   PRIMARY KEY (daemonId, lineId),
   FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_line_seen_daemon ON line_seen(daemonId);
 
 CREATE TABLE cooldown_play (
   daemonId       INTEGER NOT NULL,
   cooldownGroup  TEXT    NOT NULL,
-  expiresAtPicks INTEGER NOT NULL,   -- Architect: expiry on the row, not derived
-  PRIMARY KEY (daemonId, cooldownGroup),
+  surface        TEXT    NOT NULL,    -- round 3 (Architect): scoped per surface
+  expiresAtPicks INTEGER NOT NULL,
+  PRIMARY KEY (daemonId, cooldownGroup, surface),
   FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_cooldown_play_daemon ON cooldown_play(daemonId);
 
 CREATE TABLE daemon_state (
   daemonId            INTEGER PRIMARY KEY NOT NULL,
   lastConversationAt  INTEGER,
-  conversationsHad    INTEGER NOT NULL DEFAULT 0,
   firstConversationAt INTEGER,
-  -- Architect's note: NOT on daemons (which is @Serializable / exported).
-  -- This table is intentionally excluded from PantheonBackup.
+  conversationsHad    INTEGER NOT NULL DEFAULT 0,
+  majorsClosedTotal   INTEGER NOT NULL DEFAULT 0,   -- round 3 (Architect): denormalized
+  wishesSpentTotal    INTEGER NOT NULL DEFAULT 0,   -- round 3 (Architect): denormalized
+  -- Excluded from PantheonBackup so backup format doesn't churn.
   FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
 );
 ```
 
-No `choice_log` table (Architect cut — write-only without UI). No
-`affinity` column anywhere. `daemon_state` is excluded from the
-PantheonBackup export so the backup format doesn't churn.
+**Surface in `cooldown_play.PRIMARY KEY`** (round 3, Architect): an
+`INLINE` pick of a cooldown group does NOT block a `SCREEN` line in
+the same group unless the line is `crossSurfaceCooldown = true`
+(in which case the engine writes one row per surface, or — cheaper —
+a row with `surface = 'BOTH'` consulted by both surfaces).
+
+**Synthetic `LAPSE_REACTIVE` cooldown** (round 3, Skeptic): when a
+line carrying `AfterLapse(_)` plays in either surface, the engine
+inserts `(daemonId, 'lapse_reactive_24h', 'BOTH', expiresAtPicks=N)`
+where `N` is sized to outlast a day. Lint enforces that any line with
+`AfterLapse` in its predicates also carries `cooldownGroup =
+LAPSE_REACTIVE_COOLDOWN, crossSurfaceCooldown = true`.
+
+**Import / Reset behavior** (round 3, Architect): on `Reset`, all three
+tables wipe (FK CASCADE from `daemons`). On `Import`, since
+`PantheonBackup` doesn't include these tables, the import path must
+also explicitly clear them so a stale `firstConversationAt` doesn't
+survive a restore.
+
+No `choice_log` table (round 1 cut, write-only without UI). No
+`affinity` column anywhere.
 
 ## Content corpus
 
@@ -462,60 +550,89 @@ tells evolve without touching engine logic.
   language; don't duplicate at the wrong layer. Plain `${}`
   substitution, ~5 tokens.
 
-## Polish status (post round 2)
+## Polish status (post round 3)
 
-- ~~Kotlin DSL builder~~ — **dropped**. Architect: IDE/compile risk
-  at scale; Demolisher: designer's joy. Raw `listOf(DialogueLine())`.
-- ~~Archetype-flavored animated thinking pauses~~ — **dropped**.
-  Demolisher: animation system isn't earning its keep. Tells in text
-  do the perceived work.
-- **Tells library + per-archetype tell cooldown** — kept, moved to
-  renderer (Architect).
-- **`DialogueLintTest` Kotlin unit test** — kept (Ally pushed for
-  this in round 2; cheaper than a Gradle plugin). Asserts id
-  uniqueness, no dangling `requires` / `forbids` / `nextLineId`,
-  every RESPONSE reachable, every archetype covers the 8 mandated
-  topics, every non-deprecated line whose `requires` points at a
-  deprecated id without `replacedBy`.
-- **`deprecated: Boolean` + `replacedBy: String?`** — adopted now
-  (Ally + Skeptic converge: impossible to retrofit safely).
+- ~~Kotlin DSL builder~~ — dropped (Architect + Demolisher).
+- ~~Animated thinking pauses~~ — dropped (Demolisher).
+- ~~First-launch explainer~~ — dropped (round 3 — Believer + Skeptic
+  + Demolisher converge: "daemons don't explain themselves").
+- **Tells library** in renderer (Architect). Per-archetype
+  tell-cooldown lives in **DataStore Preferences** (round 3, Ally:
+  survives process death, no new Room table — this isn't
+  relationship state, just anti-repetition).
+- **`DialogueLintTest`** — Ally's round-3 spec adopted:
+  - (a) id uniqueness across all archetype files
+  - (b) no dangling `requires` / `forbids` / `nextLineId` /
+    `replacedBy` references
+  - (c) every RESPONSE line reachable from some OPENER via choice
+    graph (BFS)
+  - (d) every archetype covers all 8 mandated topics
+  - (e) `archetypeWhitelist`-bearing predicates not attached to
+    lines whose archetype is outside the whitelist
+  - (f) chain integrity through deprecation — if A `requires` B and
+    B is `deprecated`, B must declare `replacedBy`
+  - (g) no `preferredSurface = INLINE` line carrying `choices`
+    (inline can't render branching)
+  - (h) every line with `AfterLapse(_)` in predicates carries
+    `cooldownGroup = LAPSE_REACTIVE_COOLDOWN` and
+    `crossSurfaceCooldown = true`
+  - (i) every ESSENTIAL + lifeEvent line declares an explicit
+    `preferredSurface` (default `EITHER` would be a bug here)
+- **`deprecated: Boolean` + `replacedBy: String?`** — kept. Engine
+  follows ONE hop of `replacedBy` at load time when resolving
+  `requires` chains (round 3, Architect: lint-only insufficient).
+- **`LineProvenance` debug overlay** in dev builds (round 3, Ally) —
+  long-press a daemon line to see the resolved id and any
+  `replacedBy` hops. Costs nothing, makes the deprecation pipeline
+  auditable from day one.
 - "last 3 exchanges" strip — deferred to v0.0.7.
 - `@onSeen` side-effect hooks — deferred.
 
-## Open questions for council round 3
+## v0.0.7 screen-cutdown trigger (encoded Demolisher concession)
 
-1. **The `preferredSurface` solution to the race bug.** Does it cover
-   every case, or are there leak paths where the inline surface still
-   burns a screen-flagged ESSENTIAL? What about repeat-after-replay
-   semantics — once a screen-only line plays in Consumer B, the
-   inline never sees it (by design), but should it ever?
-2. **Multi-beat chains in only 3 archetypes for v0.0.6.** Drill
-   Sergeant + Gentle Mentor + Oracle. Right pick? Is the harsh /
-   warm / mystic triad the most-likely-to-be-used coverage, or are
-   we picking the most-fun-to-write archetypes for ourselves?
-3. **The earned predicates.** `MajorsClosedAtLeast` + `WishesSpentAtLeast`
-   replace what affinity would have done. Is this enough scaffolding
-   for the vulnerability chain to feel earned, or does the user need
-   to *see* the gate they're approaching (Believer's "punch-card"
-   concern from round 2)?
-4. **`archetypeWhitelist` on predicates as the surveillance guardrail.**
-   Is this enough, or do we also need cap-per-day cooldowns on
-   lapse-reactive lines so even Drill Sergeant can't compound shame?
-5. **No `replacedBy` enforcement at runtime, only at lint time.** A
-   line marked `deprecated = true, replacedBy = "ds_new_morning"` —
-   what does the engine do if a user's chain has `requires =
-   listOf("ds_old_morning")`? Currently the chain just breaks. Should
-   the engine follow `replacedBy` chains?
-6. **Mid-day-return ambush moment** (Ally round 2). Inline opener
-   gated by `MinorsCompletedTodayAtLeast(0) + TimeOfDayIs(AFTERNOON)
-   + DaysSinceLastConversationAtLeast(0)`. Worth designing as its
-   own essential pattern, or just one more opener variant?
-7. **The Demolisher's persisting concern.** Even after cuts, the
-   Conversation screen carries 40% of remaining concern. Is there a
-   structural move (e.g., the screen's first-launch shows a
-   why-this-exists explainer that frames it as ritual not utility)
-   that addresses the "opened twice" risk without cutting the
-   feature?
+The Conversation screen ships in v0.0.6 because the user explicitly
+asked for conversations. The Demolisher's round-1 and round-3 case for
+cutting it is structurally sound and goes uncontested at the product
+level. Instead of pre-cutting, we commit to a measurable trigger:
+
+> If the Conversation screen sees fewer than **2 opens per active
+> daemon per week** averaged over the v0.0.6 lifetime, v0.0.7 cuts
+> the screen, the `RESPONSE` category, and the multi-beat chain
+> content. The inline track stays.
+
+This is the Skeptic's "ship and measure" methodology re-shifted from
+inside v0.0.6 (a vertical slice we declined) to the v0.0.6 → v0.0.7
+transition. The 3-deep chains in v0.0.6 give the screen its best
+possible v0.0.6 expression; if even that fails to retain, the
+Demolisher's epitaph was right and we honor it cheaply at v0.0.7.
+
+## Open questions for council round 4
+
+1. **The `replacedBy` one-hop runtime rewrite** (round 3 Architect
+   adoption) — is one hop enough, or are we going to regret not
+   making it transitive? The semantic argument was "keep it legible,"
+   but real deprecation cycles rewrite the same line twice.
+2. **Surface-scoped cooldowns + the `BOTH` row.** Is this the
+   cleanest implementation, or should the engine just join across
+   the two surface rows per query? Schema is set; the query plan is
+   still open.
+3. **The 24h fallback bug fix** (Skeptic): `OR conversationsHad == 0`.
+   Does this cover *every* legitimate case where the daemon should
+   be allowed to talk, or is there another edge (e.g., user reset
+   the pantheon and `conversationsHad` is back to 0 but the daemon
+   has memories of the previous incarnation we should preserve)?
+4. **Implementation order**. With the design now stable, what's the
+   *implementation* sequence that lets us ship cheapest? Is it:
+   (a) engine + corpus skeleton + ONE archetype's full content
+   first, (b) all schema + DAOs first, (c) lint test first so the
+   corpus authoring is checked from the start?
+5. **Authoring rate**. ~430-480 lines is the corpus. Round 4's job
+   should include sizing how long this actually takes to author
+   well, and whether we should commit to a phased v0.0.6.x release
+   (engine + ambush track at v0.0.6, Conversation screen + chains
+   at v0.0.6.1) instead of one big drop.
+6. **Anything still missing.** Round 4 is the "is anything quietly
+   wrong" round.
 
 ## Council iteration log
 
@@ -608,4 +725,62 @@ choice cards.
 - Conversation screen kept (user explicit ask) but all decorative
   scaffolding around it cut (Demolisher's spirit, not letter)
 
-Rounds 3–5+ will append below.
+### Round 3 — synthesis
+
+Believer accepted the v3 earned predicates as satisfying the
+punch-card concern; demanded the mid-day-return be its own essential
+pattern (not just an opener variant); rejected the first-launch
+explainer as "the screen earns its second open by what the daemon
+says the first time."
+
+Ally specced `DialogueLintTest` coverage (9 items now); recommended
+DataStore Preferences for tell-cooldown (not Room); fleshed out the
+mid-day-return predicate stack with three example archetype lines;
+proposed `LineProvenance` debug overlay.
+
+Architect found three new leak paths in v3: (1) EITHER-flagged
+ESSENTIAL still races; (2) cooldown bleed across surfaces; (3)
+`replacedBy` chains break user data if engine lint-only. Recommended
+predicate singletons / interning. Flagged denormalized counter need
+for earned predicates. Confirmed `daemon_state` exclusion from
+backup but caught the import-leaves-stale-state bug.
+
+Skeptic killed the unconditional 24h same-encounter fallback (rewards
+absence); demanded synthetic `LAPSE_REACTIVE` cross-surface cooldown
+so even whitelisted archetypes can't compound shame; rejected the
+first-launch explainer as polish dressed as structure; stayed firm
+on full vertical-slice (one archetype deep, others stubbed).
+
+Demolisher delivered the harshest revisit: "decorations are gone,
+the mistake is naked." Argued earned predicates are structurally
+identical to affinity. Argued the 3-deep / 7-shallow split is the
+ceasefire that loses both fronts. Lightly-revised epitaph: same
+verdict, two-percent improvement.
+
+**Resolutions encoded into v4:**
+- `EITHER`-flagged ESSENTIAL+lifeEvent default to SCREEN via lint
+- Surface-scoped cooldowns (`cooldown_play.surface` column,
+  `crossSurfaceCooldown` flag on the line)
+- Engine resolves `requires` through one hop of `replacedBy` at load
+- Predicate singletons + small-arity interning (coding convention)
+- Denormalized `majorsClosedTotal` / `wishesSpentTotal` on
+  `daemon_state`, updated on event
+- Import-replaces-pantheon also wipes `daemon_state`
+- 24h unconditional fallback dropped; `OR conversationsHad == 0`
+- Synthetic `LAPSE_REACTIVE_COOLDOWN` cross-surface, lint-enforced
+- First-launch explainer dropped (3 seats converged)
+- Mid-day-return promoted to its own essential pattern
+- Tell-cooldown lives in DataStore Preferences (not Room)
+- `LineProvenance` dev-build debug overlay adopted
+- v0.0.7 cutdown trigger documented: < 2 screen opens/active
+  daemon/week ⇒ cut screen + RESPONSE + chain content
+
+**Tensions remaining unresolved (round 4 to test):**
+- Skeptic's full vertical-slice still rejected — v0.0.7 trigger is
+  the deferred concession.
+- Believer's legibility-vs-opacity on earned predicates — fix would
+  require surfacing gates to user; documented as v0.0.7 tension.
+- Demolisher's "cut the screen" — rejected per user ask; v0.0.7
+  cutdown trigger encodes the deferred concession.
+
+Rounds 4–5+ will append below.
