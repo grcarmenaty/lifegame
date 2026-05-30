@@ -3,10 +3,15 @@
 > **Version log**
 > - v0 — pre-research, pre-council. Tree-based, naive.
 > - v1 — post-Hades research, pre-council. Flat predicate pool.
-> - **v2 (current) — post council round 1.** Two consumers of one
->   engine (inline surfaces + explicit screen), affinity deferred to
->   v0.0.7, `choice_log` cut, action-only same-encounter lock,
->   templating minimal, life-event-recency ordering within ESSENTIAL.
+> - v2 — post council round 1. Two consumers, affinity cut, cuts to
+>   `choice_log`, ChoiceTone, conditional templating, wall-clock lock.
+> - **v3 (current) — post council round 2.** Fixes the two-consumer
+>   race bug (`preferredSurface`). Adds earned predicates for
+>   intimacy gating (Believer). Adds `archetypeAllowsReactive`
+>   whitelist (Skeptic). Drops DSL (Architect + Demolisher converge).
+>   Drops animated thinking pauses (Demolisher). Tells move to
+>   renderer (Architect). Adopts deprecation scaffolding now
+>   (Ally + Skeptic).
 
 ## Premise
 
@@ -86,22 +91,28 @@ data class DialogueLine(
     val text: String,                      // templated; ${daemonName}, etc.
     val tier: LineTier,                    // FILLER | CONTEXTUAL | ESSENTIAL
     val category: LineCategory,            // OPENER | COMPLETION | APOTHEOSIS | RESPONSE
+    val preferredSurface: PreferredSurface = PreferredSurface.EITHER,  // round 2 fix
     val priority: Int = 0,                 // tiebreak within tier
-    val recencyKey: RecencyKey? = null,    // for ESSENTIAL: how recent must the
-                                           // triggering event be? lower = wins
+    val lifeEvent: Boolean = false,        // ESSENTIAL first-ever beats today's
+    val recencyKey: RecencyKey = RecencyKey.EVER,  // secondary recency sort
     val requires: List<String> = emptyList(),
     val forbids: List<String> = emptyList(),
     val stateRequirements: List<Predicate> = emptyList(),
     val cooldownGroup: String? = null,
     val cooldownPicks: Int? = null,
-    val tells: TellStyle = TellStyle.NONE, // archetype-flavored pause marker
+    val tellHint: TellStyle = TellStyle.NONE,   // hint to renderer; renderer picks the tell
     val choices: List<DialogueChoice> = emptyList(),
+
+    // Deprecation scaffolding (round 2, Ally + Skeptic converge)
+    val deprecated: Boolean = false,       // engine skips for new picks
+    val replacedBy: String? = null,        // chain rewrites preserve continuity
 )
 
 enum class LineTier { FILLER, CONTEXTUAL, ESSENTIAL }
 enum class LineCategory { OPENER, COMPLETION, APOTHEOSIS, RESPONSE }
+enum class PreferredSurface { EITHER, INLINE, SCREEN }
 enum class TellStyle { NONE, ELLIPSIS, SNAP, FADE, PACE }
-enum class RecencyKey { FIRST_EVER, TODAY, THIS_WEEK, THIS_MONTH, EVER }
+enum class RecencyKey { TODAY, THIS_WEEK, THIS_MONTH, EVER }
 
 data class DialogueChoice(
     val text: String,
@@ -110,7 +121,19 @@ data class DialogueChoice(
 )
 ```
 
-No `ChoiceTone`, no `affinityDelta` — both cut with affinity.
+No `ChoiceTone`, no `affinityDelta` — both cut with affinity in v2.
+
+**Why `preferredSurface`** (round 2, Architect + Skeptic converge):
+the two-consumer architecture creates a race — if the daily greeting
+plays `ds_after_lapse` (ESSENTIAL) at 8am, the Conversation screen at
+8:01 sees it as played and opens with a filler. `preferredSurface =
+SCREEN` reserves life-event one-shots and multi-beat chains for the
+screen; inline queries filter them out. Same line ID, no fragmentation.
+
+**Why `lifeEvent` + `recencyKey` split** (round 2, Architect): the v2
+ordinal-as-priority was brittle — "first apotheosis ever" should always
+beat "first lapse today" regardless of recency. Now sorted by
+`lifeEvent desc`, then `recencyKey asc`, then `priority desc`.
 
 ### `ConversationContext`
 
@@ -151,19 +174,53 @@ A small algebra of named predicates implementing
   `AtLevelAtLeast(n: Int)`, `TimeOfDayIs(t)`,
   `MinorsCompletedTodayAtLeast(n)`,
   `StreakAtLeast(days: Int)`, `DaysSinceLastConversationAtLeast(n)`,
-  `ConversationsHadAtLeast(n)`, `BoonSpentToday`.
+  `ConversationsHadAtLeast(n)`,
+  `DaysSinceFirstConversationAtLeast(n)`,
+  `BoonSpentToday`.
+
+**Earned predicates** (round 2, Believer): the vulnerability chain and
+similar "intimacy is earned" content gates on *costly action*, not
+attendance:
+- `MajorsClosedAtLeast(n: Int)` — only counts truly closed (not just
+  attempted).
+- `WishesSpentAtLeast(n: Int)`.
+
+These are not gameable because the cost is real (the user has to
+actually do quests, actually spend wishes). They replace what affinity
+would have done in v0 / v1.
+
+**Reactive-predicate archetype gates** (round 2, Skeptic): some
+predicates carry a shame-amplifier risk. They declare which archetypes
+may match them:
+
+```kotlin
+class AfterLapse(val min: Int) : Predicate {
+    override val archetypeWhitelist = setOf(
+        "DRILL_SERGEANT", "COACH", "TRICKSTER", "STOIC"
+    )
+    override fun isSatisfied(ctx) = ctx.dailyMinorsLapsedCount >= min
+}
+```
+
+Engine checks `predicate.archetypeWhitelist?.contains(ctx.archetypeKey) ?: true`
+during eligibility. Drill Sergeant can react to lapses; Gentle Mentor,
+Therapist, Hermit, Poet cannot — at the engine layer, by construction.
+Author cannot accidentally hand a shame line to the wrong daemon.
 
 Add as content demands. Never grow the algebra speculatively.
 
 ### Engine
 
 ```kotlin
+enum class Surface { INLINE, SCREEN }
+
 class DialogueEngine(
     private val corpus: List<DialogueLine>,
     private val store: DialogueStateStore,
 ) {
     suspend fun pickFor(
         category: LineCategory,
+        surface: Surface,                  // round 2: who's asking?
         ctx: ConversationContext,
     ): DialogueLine? {
         // Single-batch fetch — Architect's note: materialize maps once.
@@ -175,9 +232,11 @@ class DialogueEngine(
         val eligible = corpus.asSequence()
             .filter { it.category == category }
             .filter { it.archetype == ctx.archetypeKey || it.archetype == "ANY" }
+            .filter { !it.deprecated }                                   // round 2
+            .filter { surfaceMatches(it.preferredSurface, surface) }     // round 2
             .filter { it.requires.all(played::contains) }
             .filter { it.forbids.none(played::contains) }
-            .filter { it.stateRequirements.all { p -> p.isSatisfied(ctx) } }
+            .filter { it.stateRequirements.all { p -> archetypeMatches(p, ctx) && p.isSatisfied(ctx) } }
             .filter { it.cooldownGroup == null || it.cooldownGroup !in cooldowns }
             .toList()
 
@@ -187,14 +246,22 @@ class DialogueEngine(
             ?: return null
 
         return byTier[tier]!!.sortedWith(
-            compareBy<DialogueLine>(
-                { it.recencyKey?.ordinal ?: Int.MAX_VALUE },  // life-event recency wins
-                { -it.priority },                              // higher priority next
-                { playCounts[it.id] ?: 0 },                    // exhaust before repeat
-                { lastPlayedAt[it.id] ?: 0L },                 // oldest first
-            )
+            compareByDescending<DialogueLine> { it.lifeEvent }              // life-events first
+                .thenBy { it.recencyKey.ordinal }                            // TODAY before EVER
+                .thenByDescending { it.priority }
+                .thenBy { playCounts[it.id] ?: 0 }                           // exhaust before repeat
+                .thenBy { lastPlayedAt[it.id] ?: 0L }
         ).first()
     }
+
+    private fun surfaceMatches(pref: PreferredSurface, asking: Surface) = when (pref) {
+        PreferredSurface.EITHER -> true
+        PreferredSurface.INLINE -> asking == Surface.INLINE
+        PreferredSurface.SCREEN -> asking == Surface.SCREEN
+    }
+
+    private fun archetypeMatches(p: Predicate, ctx: ConversationContext): Boolean =
+        p.archetypeWhitelist?.contains(ctx.archetypeKey) ?: true
 
     suspend fun markPlayed(daemonId: Long, line: DialogueLine) {
         store.markPlayed(daemonId, line.id, System.currentTimeMillis())
@@ -205,11 +272,20 @@ class DialogueEngine(
 }
 ```
 
+**`ConversationsHad` increments on first user choice taken, not on
+screen open** (round 2, Architect): tap-and-bounce no longer accrues
+intimacy credit. The flag is set in `DialogueEngine.continueWith`,
+not in `pickFor`.
+
 The same-encounter lock for Consumer B (Conversation screen): the
-screen refuses to open if `(now - lastConversationAt) <
-SAME_ENCOUNTER_WINDOW` **AND** no real activity happened
-(completed-minor or major or spent-wish) between the two opens.
-Action-only, no wall clock — Believer + Architect agreed on this.
+screen refuses a fresh open if no real activity (completed-minor,
+closed-major, spent-wish, summoned-daemon) has happened since
+`lastConversationAt`. Architect (round 2) flagged that pure
+action-gating could leave a daemon mute forever — so there's an
+absolute fallback: regardless of activity, the lock auto-releases
+after **24 hours**. Refused state shows a small archetype-styled
+banner ("`*pacing*` I've said my piece. Go.") with a single "Leave"
+action.
 
 ### Persistence
 
@@ -251,23 +327,34 @@ PantheonBackup export so the backup format doesn't churn.
 
 ## Content corpus
 
-### Shape (post-round-1 revision)
+### Shape (post-round-2 revision)
 
-Per archetype:
-- **8-10 OPENER lines** spanning state patterns (first-ever-conversation,
+All 10 archetypes ship full coverage on the foreground surfaces:
+- **6-8 OPENER lines** spanning state patterns (first-ever-conversation,
   post-apotheosis, after-lapse, morning, evening, with-wishes-pending,
-  all-quests-clear, mid-streak)
-- **6-8 COMPLETION lines** with state predicates (close-streak,
+  all-quests-clear, mid-streak, **mid-day-return** per Ally round 2)
+- **5-7 COMPLETION lines** with state predicates (close-streak,
   weak-streak, first-of-day, late-evening)
-- **4-6 APOTHEOSIS lines** spanning level milestones + recent-pattern
-- **3-5 multi-beat CHAIN sequences** (each chain ~3 beats; chains live
-  exclusively in Consumer B)
-- **15-20 RESPONSE lines** as targets of branching choices
-- **5-8 ESSENTIAL one-shots** keyed by `RecencyKey.FIRST_EVER` /
-  `TODAY` (first conversation ever, first apotheosis, first lapse,
-  first wish spent, level-5 ever, etc.)
+- **4-5 APOTHEOSIS lines** spanning level milestones + recent-pattern
+- **10-15 RESPONSE lines** as targets of branching choices
+- **5-8 ESSENTIAL one-shots** with `lifeEvent = true` (first
+  conversation ever, first apotheosis, first lapse, first wish spent,
+  level-5 ever)
 
-**Per archetype: ~45-55 lines × 10 archetypes ≈ 500 lines.**
+**3 archetypes go deep with multi-beat CHAINS** in v0.0.6 (round 2
+compromise on Skeptic's vertical-slice argument):
+- **Drill Sergeant** (harsh), **Gentle Mentor** (warm), **Oracle**
+  (mystic) — covering three relational stances.
+- Each: 3 chains × ~3 beats = ~9 chain lines.
+- Other 7 archetypes get chains in v0.0.7 if engagement data warrants.
+
+**Corpus math:**
+- Foreground coverage: ~35-40 lines × 10 = 350-400
+- Chain content: ~27 lines × 3 archetypes = ~80
+- Total: ~430-480 lines
+
+Honors the user's "very comprehensive" ask within a budget one author
+can hold in their head.
 
 ### Topics every archetype must cover
 
@@ -285,41 +372,51 @@ Same eight axes as v1:
 
 ### Authoring format
 
-Adopting Ally's polish #1 — a thin Kotlin DSL builder:
+**DSL dropped from v0.0.6** (round 2: Architect flagged IDE/compile
+risk with mega `init {}` blocks; Demolisher called it designer's joy
+when there is no second author). Use raw `listOf(DialogueLine(...))`
+per archetype, one file per archetype under
+`domain/dialogue/lines/<ArchetypeName>Lines.kt`. Compile-checked,
+IDE-friendly, refactor-clean. Revisit DSL when a second author shows
+up.
 
 ```kotlin
-object DrillSergeantLines : ArchetypeLines("DRILL_SERGEANT") {
-    init {
-        opener("ds_morning") {
-            tier = CONTEXTUAL
-            requires(TimeOfDayIs(MORNING))
-            cooldownGroup("greet", picks = 4)
-            says("Morning. List's short. Get moving.")
-        }
-        opener("ds_after_lapse") {
-            tier = ESSENTIAL
-            recencyKey = TODAY
-            requires(AfterLapse(min = 1))
-            says("You skipped yesterday. Two ways to fix that. Pick one.")
-            choices {
-                "I'll do one now"   -> "ds_lapse_engage"
-                "I need a breather" -> "ds_lapse_breather"
-                "Leave me alone"    -> null  // end
-            }
-        }
-        chain("ds_why_matters", beats = 3) {
-            beat(1) { says("You want to know why I bark. Sit down.") }
-            beat(2) { says("Everyone has a body. Most people let it go to seed.") }
-            beat(3) { says("I'm the part of you that won't.") }
-        }
-    }
+internal object DrillSergeantLines {
+    val all: List<DialogueLine> = listOf(
+        DialogueLine(
+            id = "ds_morning",
+            archetype = "DRILL_SERGEANT",
+            text = "Morning. List's short. Get moving.",
+            tier = LineTier.CONTEXTUAL,
+            category = LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDayIs(TimeOfDay.MORNING)),
+            cooldownGroup = "ds_greet",
+            cooldownPicks = 4,
+        ),
+        DialogueLine(
+            id = "ds_after_lapse",
+            archetype = "DRILL_SERGEANT",
+            text = "You skipped yesterday. Two ways to fix that. Pick one.",
+            tier = LineTier.ESSENTIAL,
+            category = LineCategory.OPENER,
+            preferredSurface = PreferredSurface.SCREEN,    // multi-choice — needs the screen
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterLapse(min = 1)),
+            choices = listOf(
+                DialogueChoice("I'll do one now", "ds_lapse_engage"),
+                DialogueChoice("I need a breather", "ds_lapse_breather"),
+                DialogueChoice("Leave me alone", null),    // end conversation
+            ),
+        ),
+        // ... chain lines linked by `requires` / `forbids`
+    )
 }
 ```
 
-DSL compiles to `List<DialogueLine>`. ~30% fewer keystrokes than raw
-`data class` literals; remains compile-checked.
+Top-level `DialogueCorpus.all` flattens all archetype lists at
+startup. One file per archetype keeps incremental compile cheap.
 
-### Tells (Ally polish #5)
+### Tells (renderer concern, not engine)
 
 Per archetype, a small set of in-voice "tells" — micro-stage-directions
 that interleave or precede lines. E.g.:
@@ -328,10 +425,12 @@ that interleave or precede lines. E.g.:
 - Gentle Mentor: `*soft smile*`, `*sets cup down*`
 - Hermit: `*does not look up*`
 
-A line declares `tells = ELLIPSIS` (or whichever) and the renderer
-prepends/appends the chosen tell from that archetype's tell library.
-20 extra tokens of authoring per archetype, big perceived-variety
-multiplier.
+The `DialogueLine.tellHint` is a *hint* the renderer interprets.
+**Architect (round 2): the tell library lives next to the UI**, not
+inside the engine corpus, and the renderer holds per-archetype
+**tell cooldown state** (don't repeat the same tell back-to-back per
+Ally polish #3). This keeps `DialogueEngine` corpus-pure and lets the
+tells evolve without touching engine logic.
 
 ## UI
 
@@ -339,11 +438,9 @@ multiplier.
   header.
 - **`ConversationScreen`**:
   - Top: daemon name + level + back arrow.
-  - Center: current line in large type, archetype-flavored thinking
-    pause (Ally polish #3: 600-900ms before the daemon's reply,
-    with archetype-flavored indicator — Oracle fades in, Drill
-    Sergeant snaps in instantly with `*snap*`, Hermit appears as
-    if always there).
+  - Center: current line in large type. Tells are baked into the
+    `text` at render time via `tellHint`; no separate animation
+    system (Demolisher round 2: animations are designer's joy here).
   - Bottom: up to 4 choice cards; if no choices, "Leave" only.
   - Persistent back-arrow exits cleanly.
 
@@ -365,41 +462,60 @@ multiplier.
   language; don't duplicate at the wrong layer. Plain `${}`
   substitution, ~5 tokens.
 
-## Polish adopted from Ally
+## Polish status (post round 2)
 
-1. Kotlin DSL builder for authoring (above).
-2. Archetype-flavored thinking pauses (above).
-3. Per-archetype "tells" library (above).
-- Gradle linter task and "last 3 exchanges" strip deferred to v0.0.7.
-- `@onSeen` side-effect hooks deferred (state mutation from content is
-  scope creep for v0.0.6).
+- ~~Kotlin DSL builder~~ — **dropped**. Architect: IDE/compile risk
+  at scale; Demolisher: designer's joy. Raw `listOf(DialogueLine())`.
+- ~~Archetype-flavored animated thinking pauses~~ — **dropped**.
+  Demolisher: animation system isn't earning its keep. Tells in text
+  do the perceived work.
+- **Tells library + per-archetype tell cooldown** — kept, moved to
+  renderer (Architect).
+- **`DialogueLintTest` Kotlin unit test** — kept (Ally pushed for
+  this in round 2; cheaper than a Gradle plugin). Asserts id
+  uniqueness, no dangling `requires` / `forbids` / `nextLineId`,
+  every RESPONSE reachable, every archetype covers the 8 mandated
+  topics, every non-deprecated line whose `requires` points at a
+  deprecated id without `replacedBy`.
+- **`deprecated: Boolean` + `replacedBy: String?`** — adopted now
+  (Ally + Skeptic converge: impossible to retrofit safely).
+- "last 3 exchanges" strip — deferred to v0.0.7.
+- `@onSeen` side-effect hooks — deferred.
 
-## Open questions for council round 2
+## Open questions for council round 3
 
-1. **The Demolisher's "ambush in toast vs. dedicated screen" critique.**
-   Resolved by shipping both consumers — but is the dedicated screen
-   genuinely earning its weight, or should we ship Consumer A only and
-   see if anyone misses the screen?
-2. **Corpus shape.** Skeptic argued one-archetype vertical-slice;
-   Believer argued 800; the current revision goes for 500 (50 × 10).
-   Is this calibrated to what one human can author without prose
-   flattening? Should we go vertical-slice for v0.0.6 (one archetype
-   deep, others get a 10-line stub) and round out in v0.0.7?
-3. **Reactive-as-surveillance failure mode** (Skeptic).
-   `dailyMinorsLapsedCount` plus Drill Sergeant = shame amplifier.
-   What guardrails sit between predicate availability and content?
-   Should ESSENTIAL-tier reactive lines on lapses be archetype-filtered
-   (Drill Sergeant can have them, Gentle Mentor must not)?
-4. **Maintenance cliff** (Skeptic). No deprecation strategy. Should
-   `DialogueLine` carry a `deprecated: Boolean` flag, with the engine
-   skipping deprecated lines but preserving `requires` chains? Cheap
-   to add now; impossible to retrofit safely.
-5. **DSL ergonomics.** The proposed DSL is compile-checked Kotlin —
-   any concerns about IDE friction or future content-editor tooling?
-   Should we plan for JSON-from-assets as an eventual escape hatch?
-6. **"Tells" library scope.** Are 4-5 tells per archetype enough, or
-   does this need a richer system (multiple tells per slot, weighted
-   sampling)?
+1. **The `preferredSurface` solution to the race bug.** Does it cover
+   every case, or are there leak paths where the inline surface still
+   burns a screen-flagged ESSENTIAL? What about repeat-after-replay
+   semantics — once a screen-only line plays in Consumer B, the
+   inline never sees it (by design), but should it ever?
+2. **Multi-beat chains in only 3 archetypes for v0.0.6.** Drill
+   Sergeant + Gentle Mentor + Oracle. Right pick? Is the harsh /
+   warm / mystic triad the most-likely-to-be-used coverage, or are
+   we picking the most-fun-to-write archetypes for ourselves?
+3. **The earned predicates.** `MajorsClosedAtLeast` + `WishesSpentAtLeast`
+   replace what affinity would have done. Is this enough scaffolding
+   for the vulnerability chain to feel earned, or does the user need
+   to *see* the gate they're approaching (Believer's "punch-card"
+   concern from round 2)?
+4. **`archetypeWhitelist` on predicates as the surveillance guardrail.**
+   Is this enough, or do we also need cap-per-day cooldowns on
+   lapse-reactive lines so even Drill Sergeant can't compound shame?
+5. **No `replacedBy` enforcement at runtime, only at lint time.** A
+   line marked `deprecated = true, replacedBy = "ds_new_morning"` —
+   what does the engine do if a user's chain has `requires =
+   listOf("ds_old_morning")`? Currently the chain just breaks. Should
+   the engine follow `replacedBy` chains?
+6. **Mid-day-return ambush moment** (Ally round 2). Inline opener
+   gated by `MinorsCompletedTodayAtLeast(0) + TimeOfDayIs(AFTERNOON)
+   + DaysSinceLastConversationAtLeast(0)`. Worth designing as its
+   own essential pattern, or just one more opener variant?
+7. **The Demolisher's persisting concern.** Even after cuts, the
+   Conversation screen carries 40% of remaining concern. Is there a
+   structural move (e.g., the screen's first-launch shows a
+   why-this-exists explainer that frames it as ritual not utility)
+   that addresses the "opened twice" risk without cutting the
+   feature?
 
 ## Council iteration log
 
@@ -441,4 +557,55 @@ checklist."
 - daemon_state table separate from daemons (export-clean)
 - Corpus target 500 lines, calibrated against Skeptic's caution
 
-Rounds 2–5+ will append below.
+### Round 2 — synthesis
+
+Believer conceded the affinity cut but disputed the cut going *too*
+far. Vulnerability chains on `conversationsHad` alone were called a
+"punch-card." Demanded ONE earned predicate (`MajorsClosedAtLeast`).
+Round 3 must protect: the Conversation screen against the Demolisher's
+push to cut it; multi-beat chains; ESSENTIAL `FIRST_EVER` lines.
+
+Ally pushed back on deferring the linter — graph integrity at 500 lines
+is invisible at line level. Proposed `deprecated` flag and tell-cooldown
+adoption now. Designed the mid-day-return ambush moment.
+
+Architect found the **two-consumer race bug**: inline plays line at
+8am, screen sees it as played at 8:01, opens with filler. Independently
+discovered by the Skeptic. Resolution: `preferredSurface`. Architect
+also flagged DSL IDE risk (mega init blocks), recommended `lifeEvent
+desc, recencyKey asc, priority desc` ordering instead of ordinal-as-
+priority, moved tells to renderer, added 24h fallback on same-encounter
+lock to prevent permanent mute, and pinned `ConversationsHad`
+increment to first-choice-taken not screen-open.
+
+Skeptic strengthened the vertical-slice argument given the doubled
+surface, proposed `archetypeAllowsReactive` predicate-layer whitelist
+as the surveillance guardrail, demanded `replacedBy` + lint for the
+deprecation strategy, and converged with Architect on the race bug.
+
+Demolisher conceded the ambush track is the real win (40% concern
+reduction) but still argued for cutting the screen entirely on
+procedural grounds. Called the DSL designer's joy. Targeted: branching
+choices, chains, same-encounter lock, animated pauses, tells-as-system,
+choice cards.
+
+**Resolutions encoded into v3:**
+- `preferredSurface` fixes the two-consumer race (Architect + Skeptic)
+- Earned predicates (`MajorsClosedAtLeast`, `WishesSpentAtLeast`) for
+  intimacy gating (Believer)
+- `archetypeWhitelist` on reactive predicates (Skeptic)
+- `ConversationsHad` increments on first choice taken (Architect)
+- 24h fallback on same-encounter lock (Architect)
+- `lifeEvent` + `recencyKey` two-axis ordering replaces ordinal hack
+- DSL dropped, raw `listOf(DialogueLine())` per archetype file
+  (Architect + Demolisher converge)
+- Animated thinking pauses dropped (Demolisher)
+- Tells move to renderer (Architect); tell cooldown in renderer (Ally)
+- `deprecated` + `replacedBy` adopted now (Ally + Skeptic)
+- `DialogueLintTest` unit test ships (Ally pushed)
+- Chains in 3 archetypes only (Drill Sergeant + Gentle Mentor + Oracle)
+  — partial concession to Skeptic's vertical-slice
+- Conversation screen kept (user explicit ask) but all decorative
+  scaffolding around it cut (Demolisher's spirit, not letter)
+
+Rounds 3–5+ will append below.
