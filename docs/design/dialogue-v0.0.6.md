@@ -1,49 +1,89 @@
-# Daemon Conversations — Design Plan (v0)
+# Daemon Conversations — Design Plan
 
-> Status: pre-research, pre-council. Will be revised once the Hades
-> research lands and iterated ≥5 rounds with the council.
+> **Version log**
+> - v0 — pre-research, pre-council. Tree-based, naive.
+> - **v1 (current) — post-Hades research, pre-council.** Replaces tree
+>   with a flat predicate pool, adopts Hades' three-tier priority and
+>   named cooldown groups, drops chunk-position state in favor of
+>   implicit chains via `requires`/`forbids`.
 
 ## Premise
 
-A hand-authored, Hades-inspired dialogue system that makes each daemon
-feel like a contextual conversation partner without an LLM. Branching
-choices give the user agency; priority + eligibility gating makes lines
-feel reactive to current state.
+A hand-authored dialogue system that makes each daemon feel like a
+contextual conversation partner without an LLM. Inspired by Supergiant's
+dialogue mechanics in Hades/Hades 2: a flat pool of voice lines, each
+gated by predicates and ranked by priority. The system feels reactive
+because the *filter* is paying attention to user state, not because the
+content is dynamically generated.
+
+User agency is achieved through **branching choices** layered on top of
+the Hades pool model — once the engine picks an opener, the user steers
+where the conversation goes by choosing among reply options.
 
 **Constraints baked in:**
-- No network. No API key. No LLM.
+- No network, no API, no LLM.
 - All content ships in the APK.
 - Reuses the existing 10 voice presets as the *style anchor*.
-- Persistent per-daemon (your history with Athleta accumulates).
+- Persistent per-daemon: your history with Athleta accumulates.
 
-## Architecture sketch
+## What Hades actually does (the parts we're copying)
+
+1. **Flat pool + predicates, not a tree.** Each line has `Priority`,
+   `GameStateRequirements`, `RequiredTextLines` (must have played),
+   `RequiredFalseTextLines` (must NOT have played), `CooldownName`,
+   `CooldownTime`. The engine filters all eligible lines, then picks
+   the highest priority.
+2. **Three priority tiers**: filler / contextual / essential. Essential
+   story beats override everything else when their conditions hit.
+3. **Two retirement axes**: hard named-cooldowns (so a *topic* goes
+   quiet, not just one line) + soft "exhaust before repeat" (prefer
+   the line with the lowest play count when picking among ties).
+4. **Sequences as implicit chains.** Line B requires line A has played.
+   There is no `currentChapter` state — the play log *is* the state.
+5. **Cheap rich state surface.** Predicates can read anything: HP,
+   weapon, deaths-this-run, gifts-given, NPCs-spoken-to. Reactivity
+   comes from the breadth of the predicate language, not from clever
+   selection logic.
+
+What we're NOT copying:
+- Voice acting (we're silent text).
+- The 300k-word corpus (we ship maybe ~500).
+- One-direction monologue (Hades' player rarely chooses what Zagreus
+  says back). We add **branching choices** because in lifegame the
+  user *is* the protagonist and needs agency.
+
+## Architecture
 
 ### `DialogueLine` (atomic content unit)
 
 ```kotlin
 data class DialogueLine(
-    val id: String,                       // stable across versions; used for "seen" tracking
-    val archetype: String,                // e.g. "DRILL_SERGEANT" or "ANY"
-    val text: String,                     // templated, references ${context.recentMajorTitle} etc.
-    val priority: Int,                    // higher = preferred when multiple eligible
-    val category: LineCategory,           // OPENER | RESPONSE | MILESTONE | FILLER | CHUNK_BEAT
-    val triggers: List<Trigger>,          // ALL must be satisfied for eligibility
-    val oneShot: Boolean = false,         // retires after first delivery
-    val cooldownDays: Int? = null,        // won't re-play inside this window
-    val chunkId: String? = null,          // for multi-beat sequences
-    val chunkPosition: Int? = null,
-    val choices: List<DialogueChoice> = emptyList(),
+    val id: String,                      // stable across versions; "seen" tracking
+    val archetype: String,               // a VoicePreset key, or "ANY"
+    val text: String,                    // templated; references ${context.X}
+    val tier: LineTier,                  // FILLER | CONTEXTUAL | ESSENTIAL
+    val priority: Int = 0,               // tiebreak within a tier; higher first
+    val requires: List<String> = emptyList(),   // lineIds that must have played
+    val forbids: List<String> = emptyList(),    // lineIds that must NOT have played
+    val stateRequirements: List<Predicate> = emptyList(),
+    val cooldownGroup: String? = null,   // named topic; shared across lines
+    val cooldownTurns: Int? = null,      // # of intervening picks before group unlocks
+    val choices: List<DialogueChoice> = emptyList(),  // user's replies (may be empty)
 )
+
+enum class LineTier { FILLER, CONTEXTUAL, ESSENTIAL }
 
 data class DialogueChoice(
-    val text: String,                     // what the user "says"
-    val nextLineId: String?,              // the daemon's reply; null = end conversation
-    val tone: ChoiceTone = ChoiceTone.NEUTRAL,  // shifts affinity
-    val gates: List<Trigger> = emptyList(),     // hide choice unless gates pass
+    val text: String,                    // what the user "says"
+    val nextLineId: String?,             // daemon's reply; null = end conversation
+    val tone: ChoiceTone = ChoiceTone.NEUTRAL,
+    val gates: List<Predicate> = emptyList(),  // hide unless gates pass
 )
+
+enum class ChoiceTone { NEUTRAL, WARM, CHALLENGING }
 ```
 
-### `ConversationContext` (what predicates can see)
+### `ConversationContext` (what predicates see)
 
 ```kotlin
 data class ConversationContext(
@@ -52,114 +92,214 @@ data class ConversationContext(
     val archetypeKey: String,
     val level: Int,
     val openMajors: List<MajorQuest>,
-    val recentlyClosedMajor: MajorQuest?,    // within last 24h
+    val recentlyClosedMajor: MajorQuest?,    // last 24h
+    val recentlyCompletedMinors: List<MinorQuest>,  // last 24h
     val minorsCompletedToday: Int,
-    val dailyMinorsLapsedCount: Int,         // DAILY minors with lastCompletedAt > 1 day ago
+    val minorsCompletedThisWeek: Int,
+    val dailyMinorsLapsedCount: Int,         // DAILY minors with lastCompletedAt > 1d ago
+    val streakDays: Int,                     // consecutive days with at least one completion
     val totalWishesAvailable: Int,
+    val recentlySpentBoonText: String?,      // last 24h
     val conversationsHad: Int,
     val daysSinceLastConversation: Int?,
-    val affinity: Int,                       // running tally from past choices
-    val recentlySpentBoonText: String?,      // within last 24h
+    val affinity: Int,                       // running tally; -10..+10 typical
+    val dayOfWeek: Int,
+    val timeOfDay: TimeOfDay,                // MORNING | AFTERNOON | EVENING | NIGHT
 )
+
+interface Predicate {
+    fun isSatisfied(ctx: ConversationContext): Boolean
+}
+// Implemented as a small algebra of named predicates:
+//   FirstConversation, AfterLapse(min: Int), AfterApotheosis,
+//   WithWishesAvailable(min: Int), AtLevel(n: Int), TimeOfDayIs(t),
+//   AffinityAtLeast(n), MinorsCompletedTodayAtLeast(n), etc.
 ```
 
 ### Engine
 
-```
-fun openConversation(daemonId): DialogueLine {
-    val ctx = buildContext(daemonId)
-    val candidates = ALL_LINES
-        .filter { it.category == OPENER }
-        .filter { it.archetype == ctx.archetypeKey || it.archetype == "ANY" }
-        .filter { it.triggers.all { t -> t.satisfied(ctx) } }
-        .filter { !alreadyRetired(it) }
-        .filter { !inCooldown(it) }
-        .filter { chunkOrderingSatisfied(it, ctx) }
-    return candidates.maxByOrNull { it.priority }
-        ?: FALLBACK_OPENER_FOR(ctx.archetypeKey)
+```kotlin
+class DialogueEngine(
+    private val corpus: List<DialogueLine>,
+    private val store: DialogueStateStore,
+) {
+    fun openConversation(ctx: ConversationContext): DialogueLine {
+        val played = store.playedLineIds(ctx.daemonId)
+        val playCounts = store.playCountsByLineId(ctx.daemonId)
+        val onCooldown = store.cooldownGroupsOnCooldown(ctx.daemonId)
+
+        val eligible = corpus
+            .filter { it.archetype == ctx.archetypeKey || it.archetype == "ANY" }
+            .filter { it.requires.all(played::contains) }
+            .filter { it.forbids.none(played::contains) }
+            .filter { it.stateRequirements.all { p -> p.isSatisfied(ctx) } }
+            .filter { it.cooldownGroup == null || it.cooldownGroup !in onCooldown }
+
+        val byTier = eligible.groupBy { it.tier }
+        val tier = listOf(LineTier.ESSENTIAL, LineTier.CONTEXTUAL, LineTier.FILLER)
+            .firstOrNull { byTier[it]?.isNotEmpty() == true }
+            ?: return FALLBACK_FOR(ctx.archetypeKey)
+
+        return byTier[tier]!!
+            .sortedWith(
+                compareByDescending<DialogueLine> { it.priority }
+                    .thenBy { playCounts[it.id] ?: 0 }                  // exhaust before repeat
+                    .thenBy { store.lastPlayedAt(ctx.daemonId, it.id) ?: 0 }
+            )
+            .first()
+            .also { store.markPlayed(ctx.daemonId, it) }
+    }
+
+    fun continueWith(ctx: ConversationContext, choice: DialogueChoice): DialogueLine? {
+        store.recordChoice(ctx.daemonId, choice)        // updates affinity, etc.
+        val nextId = choice.nextLineId ?: return null
+        val line = corpus.firstOrNull { it.id == nextId } ?: return null
+        store.markPlayed(ctx.daemonId, line)
+        return line
+    }
 }
-
-fun continueConversation(choice): DialogueLine? {
-    markChoiceTaken(choice)
-    return choice.nextLineId?.let { lookup(it) }
-}
 ```
 
-## Content corpus target
+### Same-encounter lock
 
-Per archetype, minimum:
-- **6-8 openers**, each gated by a distinct state pattern (first-ever
-  conversation; right after apotheosis; with lapsed dailies; with
-  wishes pending; etc.)
-- **3-5 multi-beat "story chunks"** that develop over multiple
-  conversations (the daemon talks about why the work matters; the
-  daemon shares a memory; etc.)
-- **8-12 response branches** the user can pick on most lines.
-- **5-10 milestone one-shots** for big moments (first apotheosis, level
-  5, first lapse, daemon's first conversation, etc.)
+Hades disallows re-poking an NPC for new lines in one hub visit. lifegame
+equivalent: after a conversation ends, the engine refuses to open a fresh
+conversation with the same daemon **until at least one of**:
+- A minor or major quest is completed.
+- 4 hours of wall time pass.
+- A wish is spent.
 
-Total target: **40-60 unique lines per archetype × 10 archetypes ≈
-400-600 lines**, plus ~50 archetype-agnostic structural lines.
+If the user opens "Talk" before any of those, they get a short
+archetype-specific "I have nothing new" beat and a "Leave" choice.
 
-This is the "very comprehensive" target. Adjustable based on council
-review of authoring cost vs. perceived depth.
+### Persistence
 
-## Persistence
-
-New Room table:
 ```
-line_seen (
+-- New tables, v2 → v3 migration
+CREATE TABLE line_seen (
   daemonId INTEGER NOT NULL,
   lineId TEXT NOT NULL,
-  lastSeenAt INTEGER NOT NULL,
-  seenCount INTEGER NOT NULL,
+  lastPlayedAt INTEGER NOT NULL,
+  playCount INTEGER NOT NULL,
   PRIMARY KEY (daemonId, lineId),
-  FOREIGN KEY(daemonId) REFERENCES daemons(id) ON DELETE CASCADE
-)
+  FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
+);
+
+CREATE TABLE choice_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  daemonId INTEGER NOT NULL,
+  choiceText TEXT NOT NULL,
+  tone TEXT NOT NULL,
+  takenAt INTEGER NOT NULL,
+  FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
+);
+
+CREATE TABLE cooldown_play (
+  daemonId INTEGER NOT NULL,
+  cooldownGroup TEXT NOT NULL,
+  startedAt INTEGER NOT NULL,
+  PRIMARY KEY (daemonId, cooldownGroup),
+  FOREIGN KEY (daemonId) REFERENCES daemons(id) ON DELETE CASCADE
+);
+
+-- Affinity stored on daemons (or in a daemons_state table) — TBD
 ```
 
-Optional affinity column on `daemons` (or a separate table).
+## Content corpus
+
+### Target
+
+Per archetype:
+- **8-10 openers**, each gated by a distinct state pattern
+- **3-5 multi-beat chains** (sequences via `requires`) on archetype themes
+- **15-20 branched response lines** for user-driven topics
+- **5-8 essential one-shots** (first conversation ever, first apotheosis,
+  level milestones, first lapse, first wish spent)
+- **10-15 filler lines** with thin or no requirements
+
+**Per archetype: ~45-55 lines × 10 archetypes ≈ 500 lines**
+plus ~30-50 archetype-shared structural lines.
+
+### Topics every archetype must cover
+
+These are the **content axes** the engine selects from. Each archetype
+should have at least one line in each:
+
+1. **Greeting** (state-aware: first-ever, post-apotheosis, after lapse,
+   morning, evening, with-wishes, all-quests-clear, mid-streak)
+2. **Progress check-in** ("How am I doing?" branch)
+3. **Negotiation** ("I want to skip", "I'm overwhelmed", "Push me harder")
+4. **Reactive comment** on a recently completed minor or closed major
+5. **Reactive comment** on a recently spent boon
+6. **Confession / vulnerability** (chain, unlocks at affinity ≥ 5)
+7. **Philosophical stance** ("Why does this matter?")
+8. **Same-encounter lock** ("I've said my piece. Go.")
+
+### Authoring format
+
+For v0.0.6 we hand-author in Kotlin as `val lines = listOf(...)` per
+archetype, one file each under `domain/dialogue/`. This is verbose but
+keeps content discoverable and compile-checked. A DSL is tempting but
+would consume implementation budget; revisit in v0.0.7.
 
 ## UI
 
-- New **Talk** button on each daemon card in Daily, plus on the detail
-  screen header.
-- `ConversationScreen`:
-  - Daemon name + archetype across the top
-  - Center: current line (large type, in voice)
-  - Bottom: up to 4 response choices as cards
-  - Persistent "Leave" / "End conversation" affordance
-- Conversation ends → return to Daily/Detail.
-- Conversation log per daemon is **not** displayed in v0.0.6 — only
-  the live thread plus the "seen" book-keeping under the hood. Showing
-  history is v0.0.7.
+- **Talk** button on each daemon card in Daily (right of the wish chip
+  / details icon) and on the daemon detail header.
+- **`ConversationScreen`**:
+  - Top: daemon name + level + a single archetype-styled greeting bar.
+  - Center: current line in large type. Optional in-voice attribution
+    "*— Athleta*" beneath.
+  - Bottom: up to 4 choice cards. If no choices, a single "Continue" or
+    "Leave" affordance.
+  - Persistent back arrow exits the conversation cleanly.
+- After conversation ends, return to where you came from.
 
-## Open questions (seeds for council)
+## Affinity (kept, scoped tightly)
 
-1. **Authoring format.** Hand-Kotlin (vibe-loyal, but rebuild for every
-   content tweak), or JSON loaded from assets (faster iteration, but
-   strings drift from code)? Or a Kotlin DSL?
-2. **Comprehensive target.** Is 40-60 lines per archetype enough? Hades
-   shipped ~300k. We're not Hades, but where's the floor for "feels
-   alive"?
-3. **Affinity mechanic.** Does it earn its complexity? Or does the
-   priority + recency system already make daemons feel responsive
-   without a running relationship score?
-4. **Free-text fallback.** If no eligible line matches, do we show a
-   generic "I have nothing new to say today" or do we pad with filler?
-5. **Cross-daemon references.** Out of scope for v0.0.6, but worth
-   considering whether to add a `mentionedBy: List<archetypeKey>` field
-   now so we don't paint into a corner.
-6. **Where to enter.** Should "Talk" be on every Daily card, or just
-   the daemon detail screen? Daily-card placement makes conversation
-   the foreground; detail-only makes it intentional.
+A running per-daemon integer, range [-10, +10], clamped. WARM choices
++1, CHALLENGING -1. Some lines gate on `AffinityAtLeast(N)` or
+`AffinityAtMost(N)`. This is the *only* hidden state the engine tracks
+that isn't already derivable from existing tables. We accept the
+complexity because it's the cheapest way to express "Drill Sergeant
+softens up after you keep showing up" without writing per-archetype
+state machines.
 
-## Hades research integration
+If the council pushes back, we cut affinity and rely purely on
+play-history sequencing.
 
-TBD when the research agent reports back. Expect updates to the
-priority system semantics, the story-chunks structure, and any
-authoring-tooling insights worth borrowing.
+## Open questions for council
+
+1. **Comprehensive target — 500 lines a defensible floor?** Or is the
+   real floor more like 200, with later patches?
+2. **Affinity earns its keep?** It's the only hidden state. Worth the
+   complexity, or can play-history-via-`requires` do the same work?
+3. **Same-encounter lock specifics.** Is the 4-hour wall-clock window
+   right, or should it be purely action-gated (only unlocks after a
+   real activity, no clock)?
+4. **Templating language.** Just `${context.field}` substitution, or do
+   we need conditionals (`${if openMajors.size > 0}…${endif}`)?
+   Conditionals are powerful but tend to balloon authoring complexity.
+5. **Where the choice branches live.** Embedding `choices` directly on
+   the line (current sketch) keeps everything in one place; a separate
+   `branches` table makes large branching topics easier to edit. The
+   Hades approach (everything inline as Lua tables) suggests inline.
+6. **Daemon-can-go-silent edge case.** When zero eligible lines exist,
+   what do we show? A canned "I have nothing new" in the daemon's
+   voice, or hide the Talk button entirely?
+7. **Content tiers within tier.** Hades has just 3 tiers, but a single
+   "ESSENTIAL" tier might still need ordering (first-apotheosis vs.
+   first-level-5 vs. first-lapse all eligible at once). Use `priority`
+   integer within tier as the tiebreak — sketched above. Sufficient?
+
+## Out of scope for v0.0.6
+
+- Cross-daemon references (Athleta mentioning Sage)
+- Audio / voice acting
+- Conversation history view (the log accumulates but isn't displayed)
+- Live-service content patches
+- LLM integration of any kind
 
 ## Council iteration log
 
-Will be appended to this doc as rounds 1–5+ complete.
+Rounds will append below.
