@@ -1,0 +1,46 @@
+package com.grcarmenaty.lifegame.domain.dialogue.lines
+
+import com.grcarmenaty.lifegame.domain.dialogue.*
+
+internal object TricksterLines {
+    private const val A = "TRICKSTER"
+    val all: List<DialogueLine> = listOf(
+        DialogueLine("tr_first_ever", A, "Oh good, the protagonist arrives. Let's misbehave.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true,
+            stateRequirements = listOf(FirstConversation)),
+        DialogueLine("tr_morning", A, "Look who showed up. Got a list, want to hear it?",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "tr_greet", cooldownPicks = 3),
+        DialogueLine("tr_after_lapse", A, "Took the day off, did we. How sophisticated.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterLapse_1),
+            cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
+            cooldownPicks = 1,
+            crossSurfaceCooldown = true),
+        DialogueLine("tr_post_apotheosis", A, "Plot twist: you're winning. Annoying.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterApotheosis_24h)),
+        DialogueLine("tr_wishes_pending", A, "You've got coupons. Use them before I print more.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(WishesAvailable_1),
+            cooldownGroup = "tr_wish_nudge", cooldownPicks = 4),
+        DialogueLine("tr_complete_1", A, "Suspiciously competent of you.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("tr_complete_2", A, "Don't let it go to your head.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("tr_complete_3", A, "Hm. I was rooting for the other side. Fine.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("tr_apotheosis_1", A, "Well. That happened. Up you go.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("tr_apotheosis_2", A, "I'll allow it. Next?",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("tr_apotheosis_first_ever", A, "First trophy. I'll polish it badly.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            lifeEvent = true,
+            stateRequirements = listOf(MajorsClosed_1)),
+    )
+}

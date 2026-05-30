@@ -1,0 +1,48 @@
+package com.grcarmenaty.lifegame.domain.dialogue.lines
+
+import com.grcarmenaty.lifegame.domain.dialogue.*
+
+internal object OracleLines {
+    private const val A = "ORACLE"
+    val all: List<DialogueLine> = listOf(
+        DialogueLine("or_first_ever", A, "The thread begins. I have been waiting.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true,
+            stateRequirements = listOf(FirstConversation)),
+        DialogueLine("or_morning", A, "The day unfolds. I have seen its shape.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "or_greet", cooldownPicks = 3),
+        DialogueLine("or_evening", A, "The hours close. What you've done is part of the weave.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "or_greet", cooldownPicks = 3),
+        DialogueLine("or_mid_day_return", A, "The afternoon found you before the work did.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            preferredSurface = PreferredSurface.INLINE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, ForegroundFloor_3h),
+            cooldownGroup = "mid_day_return", cooldownPicks = 2),
+        DialogueLine("or_post_apotheosis", A, "A chapter closes. Another opens in your name.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterApotheosis_24h)),
+        DialogueLine("or_wishes_pending", A, "An omen lingers, waiting to be claimed.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(WishesAvailable_1),
+            cooldownGroup = "or_wish_nudge", cooldownPicks = 4),
+        DialogueLine("or_complete_1", A, "Yes. The pattern holds.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("or_complete_2", A, "It is done. The thread tightens.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("or_complete_3", A, "The omen turns in your favor.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("or_apotheosis_1", A, "You have crossed the threshold. I am more than I was.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("or_apotheosis_2", A, "I rise with you. Ask again.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("or_apotheosis_first_ever", A, "The first crossing. I will remember its weight.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            lifeEvent = true,
+            stateRequirements = listOf(MajorsClosed_1)),
+    )
+}

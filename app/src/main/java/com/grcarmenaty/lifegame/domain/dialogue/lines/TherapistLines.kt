@@ -1,0 +1,43 @@
+package com.grcarmenaty.lifegame.domain.dialogue.lines
+
+import com.grcarmenaty.lifegame.domain.dialogue.*
+
+internal object TherapistLines {
+    private const val A = "THERAPIST"
+    val all: List<DialogueLine> = listOf(
+        DialogueLine("th_first_ever", A, "Welcome. Take your time. There's no test here.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true,
+            stateRequirements = listOf(FirstConversation)),
+        DialogueLine("th_morning", A, "Good to see you. What's coming up for you today?",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "th_greet", cooldownPicks = 3),
+        DialogueLine("th_evening", A, "Let's take a moment. What was today like?",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "th_greet", cooldownPicks = 3),
+        DialogueLine("th_post_apotheosis", A, "Big moment. Be with it before you rush to the next.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterApotheosis_24h)),
+        DialogueLine("th_wishes_pending", A, "You allowed yourself something. Use it kindly.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(WishesAvailable_1),
+            cooldownGroup = "th_wish_nudge", cooldownPicks = 4),
+        DialogueLine("th_complete_1", A, "That mattered. How did it feel?",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("th_complete_2", A, "Good. Let's hold that for a moment.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("th_complete_3", A, "Thank you for showing up.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("th_apotheosis_1", A, "You did the thing. Notice that you did the thing.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("th_apotheosis_2", A, "Something has shifted. We can sit with that.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("th_apotheosis_first_ever", A, "Your first close. That deserves a slow breath.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            lifeEvent = true,
+            stateRequirements = listOf(MajorsClosed_1)),
+    )
+}

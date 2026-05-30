@@ -51,9 +51,24 @@ Scaffold is in place. The app builds, runs, and ships:
   pantheon to a user-picked JSON file via Storage Access Framework
   (`ACTION_CREATE_DOCUMENT`); **Import** from a JSON backup (replaces
   current pantheon, confirm dialog up-front, `ACTION_OPEN_DOCUMENT`);
-  **Reset** wipes the database (confirm dialog). Backup format is
-  versioned via `PantheonBackup.formatVersion`; IDs are preserved
-  across export → import so `wishBoonId` references survive.
+  **Reset** wipes the database (confirm dialog). **Backup format v2**
+  (since v0.0.6) carries dialogue state (`line_seen`, `cooldown_play`,
+  `daemon_state`) so a restore preserves the user's relationship
+  history with each daemon, not just the authored content.
+- **Hades-inspired dialogue engine** in `domain/dialogue/`: flat
+  predicate-gated pool, three-tier priority (FILLER / CONTEXTUAL /
+  ESSENTIAL), `requires` / `forbids` for implicit sequencing, named
+  cooldown groups with surface scoping. Voice presets remain as the
+  fallback when the engine can't pick a line. Inline-surface (Daily
+  greeting, apotheosis dialog) wired in v0.0.6; Conversation screen
+  + multi-beat chains for Drill Sergeant / Gentle Mentor / Oracle
+  ship in v0.0.6.1. Council-iterated design lives in
+  [`docs/design/dialogue-v0.0.6.md`](docs/design/dialogue-v0.0.6.md).
+  `DialogueLintTest` (JVM unit test) enforces id uniqueness, dangling
+  references, archetype-whitelist on shame-amplifier predicates,
+  cross-surface cooldown on lapse-reactive lines, recencyKey enum
+  order, and the load-bearing 180-min foreground floor on
+  mid-day-return openers.
 
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):
@@ -106,6 +121,12 @@ lifegame/
 │       │   ├── MainActivity.kt          # single activity, Compose entry
 │       │   ├── data/                    # Room entities + DAOs + DB
 │       │   ├── domain/                  # VoicePreset, PantheonRepository
+│       │   ├── domain/dialogue/        # predicate-pool dialogue engine
+│       │   │   ├── DialogueLine.kt     # line/choice/enum types
+│       │   │   ├── Predicate.kt        # predicate algebra + singletons
+│       │   │   ├── DialogueEngine.kt   # selector (lifeEvent → priority → exhaust)
+│       │   │   ├── DialogueStateStore.kt  # one batched DAO read per pick
+│       │   │   └── lines/              # per-archetype line files
 │       │   └── ui/                      # theme + per-screen packages
 │       │       ├── nav/                 # navigation graph
 │       │       ├── common/              # cross-screen composables

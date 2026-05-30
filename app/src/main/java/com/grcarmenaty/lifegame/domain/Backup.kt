@@ -1,7 +1,10 @@
 package com.grcarmenaty.lifegame.domain
 
 import com.grcarmenaty.lifegame.data.entities.Boon
+import com.grcarmenaty.lifegame.data.entities.CooldownPlay
 import com.grcarmenaty.lifegame.data.entities.Daemon
+import com.grcarmenaty.lifegame.data.entities.DaemonState
+import com.grcarmenaty.lifegame.data.entities.LineSeen
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import kotlinx.serialization.Serializable
@@ -14,6 +17,12 @@ import kotlinx.serialization.Serializable
  * The hierarchy mirrors the FK graph: daemons own boons + major quests,
  * majors own minor quests. IDs are preserved on import so wishBoonId
  * references survive a round-trip.
+ *
+ * **Format v2 (round 4, Skeptic): the relationship survives the
+ * restore.** Dialogue state — `LineSeen`, `CooldownPlay`, `DaemonState`
+ * — now travels with the backup. v1 backups still restore the
+ * authored content; only the dialogue history starts empty.
+ * "The play log IS the relationship" (Believer round 1).
  */
 @Serializable
 data class PantheonBackup(
@@ -21,9 +30,14 @@ data class PantheonBackup(
     val exportedAt: Long,
     val appVersion: String,
     val daemons: List<DaemonBackup>,
+    // v2 additions — flat lists keyed by daemonId implicitly.
+    val lineSeen: List<LineSeen> = emptyList(),
+    val cooldownPlay: List<CooldownPlay> = emptyList(),
+    val daemonState: List<DaemonState> = emptyList(),
 ) {
     companion object {
-        const val CURRENT_FORMAT_VERSION = 1
+        const val CURRENT_FORMAT_VERSION = 2
+        const val MIN_SUPPORTED_FORMAT_VERSION = 1
     }
 }
 

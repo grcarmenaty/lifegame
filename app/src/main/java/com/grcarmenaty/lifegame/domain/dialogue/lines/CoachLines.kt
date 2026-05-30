@@ -1,0 +1,50 @@
+package com.grcarmenaty.lifegame.domain.dialogue.lines
+
+import com.grcarmenaty.lifegame.domain.dialogue.*
+
+internal object CoachLines {
+    private const val A = "COACH"
+    val all: List<DialogueLine> = listOf(
+        DialogueLine("co_first_ever", A, "First day on the team. Let's set a baseline. Go.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true,
+            stateRequirements = listOf(FirstConversation)),
+        DialogueLine("co_morning", A, "Morning. Here's the slate. Pick your target.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "co_greet", cooldownPicks = 3),
+        DialogueLine("co_after_lapse", A, "Off day yesterday. Today's the run. Let's go.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterLapse_1),
+            cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
+            cooldownPicks = 1,
+            crossSurfaceCooldown = true),
+        DialogueLine("co_post_apotheosis", A, "That's a W. Bank it. Tomorrow we raise the bar.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterApotheosis_24h)),
+        DialogueLine("co_wishes_pending", A, "Recovery's earned. Use it. Don't bank it stale.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(WishesAvailable_1),
+            cooldownGroup = "co_wish_nudge", cooldownPicks = 4),
+        DialogueLine("co_streak", A, "Three days locked in. This is when it gets real. Stay.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(Streak_3),
+            cooldownGroup = "co_streak", cooldownPicks = 5),
+        DialogueLine("co_complete_1", A, "Rep counted. Reset. Go again.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("co_complete_2", A, "Tight execution. Stack another.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("co_complete_3", A, "Good rep. Now do it better.",
+            LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("co_apotheosis_1", A, "You closed it out. Promotion earned.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("co_apotheosis_2", A, "Game over — championship behavior.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("co_apotheosis_first_ever", A, "First W. Frame it; talk about it; chase the next one.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            lifeEvent = true,
+            stateRequirements = listOf(MajorsClosed_1)),
+    )
+}

@@ -2,11 +2,19 @@ package com.grcarmenaty.lifegame.domain
 
 import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
+import com.grcarmenaty.lifegame.data.dao.DialogueDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.dialogue.ConversationContext
+import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
+import com.grcarmenaty.lifegame.domain.dialogue.DialogueLine
+import com.grcarmenaty.lifegame.domain.dialogue.DialogueStateStore
+import com.grcarmenaty.lifegame.domain.dialogue.LineCategory
+import com.grcarmenaty.lifegame.domain.dialogue.Surface
+import com.grcarmenaty.lifegame.domain.dialogue.TimeOfDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
@@ -30,8 +38,89 @@ class PantheonRepository(
     private val daemonDao: DaemonDao,
     private val questDao: QuestDao,
     private val boonDao: BoonDao,
+    private val dialogueDao: DialogueDao,
+    private val dialogueEngine: DialogueEngine,
+    private val dialogueStateStore: DialogueStateStore,
 ) {
     private val defaultThresholdForAddedMajor = 3
+
+    // ---- Dialogue engine integration ----
+
+    /**
+     * Build a per-pick conversation context for [daemonId]. Many fields
+     * are simplified for v0.0.6 (streak / weekly aggregates default to
+     * cheap-to-compute values, foreground tracking unwired) — predicates
+     * that need richer context fail-closed and the engine falls back to
+     * lower tiers. The fields v0.0.6 *does* compute are exactly the ones
+     * the shipped corpus reads.
+     */
+    private suspend fun buildContext(daemon: Daemon): ConversationContext {
+        val state = dialogueStateStore.ensureDaemonState(daemon.id)
+        val majors = questDao.observeMajorsForDaemon(daemon.id).let {
+            // Use a non-suspending one-shot read via DAO suspend variant
+            questDao.getMajorsForDaemon(daemon.id)
+        }
+        val openMajors = majors.filter { !it.completed }
+        val recentlyClosedMajor = majors
+            .filter { it.completed }
+            .maxByOrNull { it.createdAt }
+            ?.takeIf { System.currentTimeMillis() - it.createdAt < 24L * 3600_000L }
+        val boons = boonDao.getForDaemon(daemon.id)
+        val totalWishes = boons.sumOf { it.count }
+        val level = 1 + questDao.countCompletedMajorsForDaemon(daemon.id)
+        val daysSinceFirst = state.firstConversationAt?.let {
+            ((System.currentTimeMillis() - it) / (24L * 3600_000L)).toInt()
+        }
+        val daysSinceLast = state.lastConversationAt?.let {
+            ((System.currentTimeMillis() - it) / (24L * 3600_000L)).toInt()
+        }
+        return ConversationContext(
+            daemonId = daemon.id,
+            daemonName = daemon.name,
+            archetypeKey = daemon.voicePreset,
+            level = level,
+            openMajors = openMajors,
+            recentlyClosedMajor = recentlyClosedMajor,
+            recentlyCompletedMinors = emptyList(),       // v0.0.6.1
+            minorsCompletedToday = 0,                    // v0.0.6.1
+            minorsCompletedThisWeek = 0,                 // v0.0.6.1
+            dailyMinorsLapsedCount = 0,                  // v0.0.6.1
+            streakDays = 0,                              // v0.0.6.1
+            totalWishesAvailable = totalWishes,
+            recentlySpentBoonText = null,                // v0.0.6.1
+            conversationsHad = state.conversationsHad,
+            daysSinceLastConversation = daysSinceLast,
+            daysSinceFirstConversation = daysSinceFirst,
+            majorsClosedTotal = state.majorsClosedTotal,
+            wishesSpentTotal = state.wishesSpentTotal,
+            minutesSinceLastForeground = null,           // v0.0.6.1
+            dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK),
+            timeOfDay = currentTimeOfDay(),
+        )
+    }
+
+    /**
+     * Engine pick + mark-played. Returns the rendered text or null if no
+     * eligible line. Callers fall back to [VoicePreset] templated lines.
+     */
+    suspend fun pickInline(daemonId: Long, category: LineCategory): String? {
+        val daemon = daemonDao.getById(daemonId) ?: return null
+        val ctx = buildContext(daemon)
+        val state = dialogueStateStore.loadState(daemonId)
+        val line = dialogueEngine.pickFor(category, Surface.INLINE, ctx, state) ?: return null
+        dialogueStateStore.markPlayed(daemonId, line, Surface.INLINE)
+        return line.text
+    }
+
+    private fun currentTimeOfDay(): TimeOfDay {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return when (hour) {
+            in 5..11 -> TimeOfDay.MORNING
+            in 12..16 -> TimeOfDay.AFTERNOON
+            in 17..20 -> TimeOfDay.EVENING
+            else -> TimeOfDay.NIGHT
+        }
+    }
 
     fun observeDaemons(): Flow<List<Daemon>> = daemonDao.observeAll()
     fun observeDaemon(id: Long): Flow<Daemon?> = daemonDao.observe(id)
@@ -141,6 +230,11 @@ class PantheonRepository(
             }
             boon.text
         }
+        // Track the close on daemon_state for earned predicates.
+        dialogueStateStore.ensureDaemonState(daemon.id)
+        dialogueDao.incrementMajorsClosed(daemon.id)
+        // Engine-picked apotheosis line (falls back to voice preset if null).
+        val engineLine = pickInline(daemon.id, LineCategory.APOTHEOSIS)
         return ApotheosisEvent(
             daemonId = daemon.id,
             daemonName = daemon.name,
@@ -149,15 +243,24 @@ class PantheonRepository(
             newLevel = levelOf(daemon.id),
             grantedBoonText = grantedText,
             grantedBoonCount = if (grantedText != null) major.wishRewardCount else 0,
+            engineLine = engineLine,
         )
     }
 
     /**
      * Spend one of [boonId]. Transactional via the DAO: if another
      * caller raced us to the last wish, the decrement is a no-op and
-     * this returns null.
+     * this returns null. Also increments the `wishesSpentTotal`
+     * counter on `daemon_state` so the `WishesSpentAtLeast` earned
+     * predicate can gate vulnerability lines.
      */
-    suspend fun spendBoon(boonId: Long): String? = boonDao.spend(boonId)?.text
+    suspend fun spendBoon(boonId: Long): String? {
+        val before = boonDao.getById(boonId) ?: return null
+        val spent = boonDao.spend(boonId) ?: return null
+        dialogueStateStore.ensureDaemonState(before.daemonId)
+        dialogueDao.incrementWishesSpent(before.daemonId)
+        return spent.text
+    }
 
     // ---- CRUD: quests ----
 
@@ -236,11 +339,20 @@ class PantheonRepository(
             }
             DaemonBackup(daemon = d, boons = boons, majorQuests = majors)
         }
+        // v2 (Skeptic round 4): dialogue state travels with the daemons
+        // so restore preserves voice continuity. "The play log IS the
+        // relationship."
+        val lineSeen = dialogueDao.allLineSeen()
+        val cooldowns = dialogueDao.allCooldowns()
+        val states = dialogueDao.allDaemonState()
         return json.encodeToString(
             PantheonBackup(
                 exportedAt = System.currentTimeMillis(),
                 appVersion = appVersion,
                 daemons = daemons,
+                lineSeen = lineSeen,
+                cooldownPlay = cooldowns,
+                daemonState = states,
             )
         )
     }
@@ -259,10 +371,12 @@ class PantheonRepository(
         } catch (e: IllegalArgumentException) {
             return ImportResult.Error("Backup is malformed: ${e.message ?: "invalid"}")
         }
-        if (backup.formatVersion != PantheonBackup.CURRENT_FORMAT_VERSION) {
+        if (backup.formatVersion < PantheonBackup.MIN_SUPPORTED_FORMAT_VERSION ||
+            backup.formatVersion > PantheonBackup.CURRENT_FORMAT_VERSION) {
             return ImportResult.Error(
                 "Backup format v${backup.formatVersion} not supported by this build " +
-                    "(expected v${PantheonBackup.CURRENT_FORMAT_VERSION})."
+                    "(supported: v${PantheonBackup.MIN_SUPPORTED_FORMAT_VERSION} to " +
+                    "v${PantheonBackup.CURRENT_FORMAT_VERSION})."
             )
         }
         reset()
@@ -273,6 +387,17 @@ class PantheonRepository(
                 questDao.insertMajor(mwm.major)
                 mwm.minors.forEach { questDao.insertMinor(it) }
             }
+        }
+        // v2 restore: dialogue state. v1 backups have empty lists and
+        // the daemons start fresh on dialogue (acceptable degradation).
+        if (backup.daemonState.isNotEmpty()) {
+            dialogueDao.insertAllDaemonState(backup.daemonState)
+        }
+        if (backup.lineSeen.isNotEmpty()) {
+            dialogueDao.insertAllLineSeen(backup.lineSeen)
+        }
+        if (backup.cooldownPlay.isNotEmpty()) {
+            dialogueDao.insertAllCooldowns(backup.cooldownPlay)
         }
         return ImportResult.Success(daemonCount = backup.daemons.size)
     }
@@ -299,4 +424,6 @@ data class ApotheosisEvent(
     val newLevel: Int,
     val grantedBoonText: String?,
     val grantedBoonCount: Int,
+    /** Engine-selected apotheosis line, or null → caller falls back to voice preset. */
+    val engineLine: String? = null,
 )

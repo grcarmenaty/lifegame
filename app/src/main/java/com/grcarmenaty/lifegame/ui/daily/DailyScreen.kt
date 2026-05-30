@@ -123,8 +123,12 @@ fun DailyScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Engine-picked line if available; otherwise voice preset
+                    // template — see v0.0.6 dialogue plan.
+                    val voiceText = event.engineLine
+                        ?: event.voicePreset.apotheosis(event.daemonId)
                     Text(
-                        text = "“${event.voicePreset.apotheosis(event.daemonId)}”",
+                        text = "“$voiceText”",
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
