@@ -7,16 +7,23 @@
 >   `choice_log`, ChoiceTone, conditional templating, wall-clock lock.
 > - v3 — post council round 2. preferredSurface, earned predicates,
 >   archetypeWhitelist, DSL out, tells to renderer, deprecation scaffolding.
-> - **v4 (current) — post council round 3.** Closes Architect's leak
->   paths (default-SCREEN for ESSENTIAL+lifeEvent, surface-scoped
->   cooldowns, `replacedBy` resolved at engine load, predicate
->   singletons, denormalized earned-predicate counters). Fixes
->   Skeptic's 24h-fallback bug (`OR conversationsHad == 0`) and adds
->   her cross-surface `LAPSE_REACTIVE` cooldown. Adopts Believer's
->   "no first-launch explainer" (Skeptic + Demolisher concur).
->   Adopts mid-day-return as its own pattern. Adopts Ally's
->   DataStore-backed tell-cooldown and dev-build `LineProvenance`
->   overlay. Documents v0.0.7 screen-cutdown trigger.
+> - v4 — post council round 3. preferredSurface leak fixes, surface-
+>   scoped cooldowns, replacedBy load-time rewrite, predicate
+>   singletons, 24h fallback bug fix, LAPSE_REACTIVE cooldown, no
+>   first-launch explainer, mid-day-return pattern.
+> - **v5 (current) — post council round 4. IMPLEMENTATION-READY.**
+>   Cuts `replacedBy` runtime rewrite (Architect + Demolisher
+>   converge: dead code given lint). Fixes backup-voice-continuity
+>   bug — bumps `PantheonBackup` to v2 carrying line_seen +
+>   cooldown_play + daemon_state. Defines rigorous v0.0.7 trigger
+>   (median, active-daemon def, screen_open counter instrumented in
+>   v0.0.6). Pre-commits `v0.0.7-cutdown.draft.md` (Demolisher's
+>   honest-trigger move). Batches state queries into one DAO call,
+>   no in-memory cache (Architect's threading concern). Adds
+>   `MinutesSinceLastForegroundAtLeast(180)` to mid-day-return
+>   (Believer). Adds fallback-seed `daemonId + epochDay` (Ally).
+>   Locks `recencyKey` enum order via unit test. Documents
+>   deprecation playbook. Locks 6-PR implementation order.
 
 ## Premise
 
@@ -394,8 +401,9 @@ CREATE TABLE daemon_state (
 **Surface in `cooldown_play.PRIMARY KEY`** (round 3, Architect): an
 `INLINE` pick of a cooldown group does NOT block a `SCREEN` line in
 the same group unless the line is `crossSurfaceCooldown = true`
-(in which case the engine writes one row per surface, or — cheaper —
-a row with `surface = 'BOTH'` consulted by both surfaces).
+(in which case the engine writes one row with `surface = 'BOTH'`,
+consulted via `WHERE surface = ? OR surface = 'BOTH'` — single index
+hit, no NULL semantics, confirmed cleanest in round 4 Architect).
 
 **Synthetic `LAPSE_REACTIVE` cooldown** (round 3, Skeptic): when a
 line carrying `AfterLapse(_)` plays in either surface, the engine
@@ -404,11 +412,27 @@ where `N` is sized to outlast a day. Lint enforces that any line with
 `AfterLapse` in its predicates also carries `cooldownGroup =
 LAPSE_REACTIVE_COOLDOWN, crossSurfaceCooldown = true`.
 
-**Import / Reset behavior** (round 3, Architect): on `Reset`, all three
-tables wipe (FK CASCADE from `daemons`). On `Import`, since
-`PantheonBackup` doesn't include these tables, the import path must
-also explicitly clear them so a stale `firstConversationAt` doesn't
-survive a restore.
+**Import / Reset behavior**:
+- **Reset**: all three tables wipe via FK CASCADE from `daemons`. The
+  same-encounter lock's `OR conversationsHad == 0` (round 3 Skeptic
+  fix) is *correct because reset is reset* — a fresh-summoned daemon
+  with the same name passes the lock unconditionally on first open.
+- **Import** (round 4, Skeptic uncovered the voice-continuity bug):
+  v4's "clear three tables on import" left a load-bearing problem —
+  restoring `Athleta.boons + quests` while wiping her `conversationsHad`
+  meant she greeted the user as a stranger. v5 fixes by **bumping
+  `PantheonBackup` to format v2**, carrying `line_seen` +
+  `cooldown_play` + `daemon_state` rows. The dialogue state is part of
+  the daemon, the way play-log is part of the relationship (Believer
+  round 1: "the play log IS the relationship"). Old v1 backups
+  restore daemons without dialogue history — acceptable degradation.
+
+**Schema migration v2 → v3** (Architect, confirmed round 3):
+- Three `CREATE TABLE` + indices.
+- `idx_line_seen_daemon` and `idx_cooldown_play_daemon` explicit even
+  though PK covers them (Room generates explicit lookups).
+- `daemon_state` `exportSchema = true` emits `app/schemas/3.json` —
+  schema is in the dump, **rows are now in the backup** (v2 format).
 
 No `choice_log` table (round 1 cut, write-only without UI). No
 `affinity` column anywhere.
@@ -420,7 +444,10 @@ No `choice_log` table (round 1 cut, write-only without UI). No
 All 10 archetypes ship full coverage on the foreground surfaces:
 - **6-8 OPENER lines** spanning state patterns (first-ever-conversation,
   post-apotheosis, after-lapse, morning, evening, with-wishes-pending,
-  all-quests-clear, mid-streak, **mid-day-return** per Ally round 2)
+  all-quests-clear, mid-streak, **mid-day-return** per Ally round 2
+  with **`MinutesSinceLastForegroundAtLeast(180)` guard** added in
+  round 4 by Believer — below the 3-hour floor, "noticing" reads as
+  surveillance for a power user reopening five times a day)
 - **5-7 COMPLETION lines** with state predicates (close-streak,
   weak-streak, first-of-day, late-evening)
 - **4-5 APOTHEOSIS lines** spanning level milestones + recent-pattern
@@ -560,6 +587,14 @@ tells evolve without touching engine logic.
   tell-cooldown lives in **DataStore Preferences** (round 3, Ally:
   survives process death, no new Room table — this isn't
   relationship state, just anti-repetition).
+- **Fallback render seed** (round 4, Ally): when `pickFor` returns
+  null and the renderer falls back to `VoicePreset.greeting(seed)`,
+  seed = `daemonId XOR epochDay` so the fallback line is stable
+  across recompositions within a day. Without this, the daily card
+  flickers between fallback variants on every state change.
+- **`recencyKey.ordinal` lock** (round 4, Ally): a unit test asserts
+  `RecencyKey.TODAY.ordinal < RecencyKey.EVER.ordinal` etc. Catches
+  silent sort inversion if anyone reorders the enum.
 - **`DialogueLintTest`** — Ally's round-3 spec adopted:
   - (a) id uniqueness across all archetype files
   - (b) no dangling `requires` / `forbids` / `nextLineId` /
@@ -578,9 +613,23 @@ tells evolve without touching engine logic.
     `crossSurfaceCooldown = true`
   - (i) every ESSENTIAL + lifeEvent line declares an explicit
     `preferredSurface` (default `EITHER` would be a bug here)
-- **`deprecated: Boolean` + `replacedBy: String?`** — kept. Engine
-  follows ONE hop of `replacedBy` at load time when resolving
-  `requires` chains (round 3, Architect: lint-only insufficient).
+- **`deprecated: Boolean` + `replacedBy: String?`** — kept as data;
+  **runtime rewrite cut in v5** (round 4: Architect + Demolisher
+  converge). Architect's argument was decisive: the lint already
+  forbids `replacedBy` pointing at a deprecated line, so transitive
+  resolution is unreachable by construction. Engine-side "follow N
+  hops" code is dead code that pretends a scenario exists. Lint-only
+  is provably sufficient given the deprecation playbook below.
+
+**Deprecation playbook** (round 4, Architect — make this explicit):
+1. Author marks line `B` `deprecated = true, replacedBy = "C"`.
+2. Lint must reject the PR if any **live** (non-deprecated) line still
+   has `replacedBy = "B"`. Author resolves by either updating the
+   in-flight `replacedBy` references to `C` or undeprecating `B`.
+3. Lint must reject any line whose `requires` references a deprecated
+   id (force authors to rewrite chains, not stack indirection).
+4. With these two rules, transitive `replacedBy` is unreachable.
+5. The engine never reads `replacedBy` — it's pure lint metadata.
 - **`LineProvenance` debug overlay** in dev builds (round 3, Ally) —
   long-press a daemon line to see the resolved id and any
   `replacedBy` hops. Costs nothing, makes the deprecation pipeline
@@ -591,48 +640,148 @@ tells evolve without touching engine logic.
 ## v0.0.7 screen-cutdown trigger (encoded Demolisher concession)
 
 The Conversation screen ships in v0.0.6 because the user explicitly
-asked for conversations. The Demolisher's round-1 and round-3 case for
-cutting it is structurally sound and goes uncontested at the product
-level. Instead of pre-cutting, we commit to a measurable trigger:
+asked for conversations. The Demolisher's case for cutting it is
+structurally sound and goes uncontested at the product level. Instead
+of pre-cutting, we commit to a **rigorously defined**, **instrumented**,
+**pre-staged** trigger.
 
-> If the Conversation screen sees fewer than **2 opens per active
-> daemon per week** averaged over the v0.0.6 lifetime, v0.0.7 cuts
-> the screen, the `RESPONSE` category, and the multi-beat chain
-> content. The inline track stays.
+### Trigger condition (round 4: Skeptic + Demolisher converge)
 
-This is the Skeptic's "ship and measure" methodology re-shifted from
-inside v0.0.6 (a vertical slice we declined) to the v0.0.6 → v0.0.7
-transition. The 3-deep chains in v0.0.6 give the screen its best
-possible v0.0.6 expression; if even that fails to retain, the
-Demolisher's epitaph was right and we honor it cheaply at v0.0.7.
+> If, over a 14-day window starting after a 7-day settle-in,
+> the **median** Conversation-screen opens per **active daemon** per
+> week is < 2, then v0.0.7 cuts: the screen, the `RESPONSE` category,
+> the multi-beat chain content, and the `crossSurfaceCooldown` flag
+> on `DialogueLine`.
 
-## Open questions for council round 4
+- **Median, not mean** (Demolisher + Skeptic): a mean hides a dead
+  screen behind one obsessive user.
+- **"Active daemon" definition**: a daemon with ≥1 minor quest
+  completion in the trailing 7 days AND created ≥7 days ago. Tied
+  to the quest loop, not the Talk button's own opens — the screen
+  cannot drag its own denominator up.
+- **7-day settle-in + 14-day measurement**: covers the novelty
+  ramp + the routinized usage that actually matters.
 
-1. **The `replacedBy` one-hop runtime rewrite** (round 3 Architect
-   adoption) — is one hop enough, or are we going to regret not
-   making it transitive? The semantic argument was "keep it legible,"
-   but real deprecation cycles rewrite the same line twice.
-2. **Surface-scoped cooldowns + the `BOTH` row.** Is this the
-   cleanest implementation, or should the engine just join across
-   the two surface rows per query? Schema is set; the query plan is
-   still open.
-3. **The 24h fallback bug fix** (Skeptic): `OR conversationsHad == 0`.
-   Does this cover *every* legitimate case where the daemon should
-   be allowed to talk, or is there another edge (e.g., user reset
-   the pantheon and `conversationsHad` is back to 0 but the daemon
-   has memories of the previous incarnation we should preserve)?
-4. **Implementation order**. With the design now stable, what's the
-   *implementation* sequence that lets us ship cheapest? Is it:
-   (a) engine + corpus skeleton + ONE archetype's full content
-   first, (b) all schema + DAOs first, (c) lint test first so the
-   corpus authoring is checked from the start?
-5. **Authoring rate**. ~430-480 lines is the corpus. Round 4's job
-   should include sizing how long this actually takes to author
-   well, and whether we should commit to a phased v0.0.6.x release
-   (engine + ambush track at v0.0.6, Conversation screen + chains
-   at v0.0.6.1) instead of one big drop.
-6. **Anything still missing.** Round 4 is the "is anything quietly
-   wrong" round.
+### Instrumentation (round 4 Believer's round-5 hill)
+
+If v0.0.6 ships without the meter, the trigger is theater. **v0.0.6
+must ship**:
+- `daemon_state.screenOpenCount: Int` (denormalized counter)
+- `daemon_state.lastScreenOpenAt: Long?`
+- Daily window aggregation visible in the dev-build `LineProvenance`
+  overlay (long-press a daemon card → see screen-opens / active-week
+  / current median).
+- A read-only `SettingsScreen → "Conversation metrics"` row (dev build
+  only) so the author can see drift without attaching a debugger.
+
+### Pre-commit (round 4 Demolisher's honest-trigger move)
+
+A draft file `docs/design/v0.0.7-cutdown.draft.md` ships alongside
+v0.0.6 and enumerates **exactly** what gets deleted if the trigger
+fires:
+- `ui/conversation/` package
+- `RESPONSE` enum value + every line carrying it
+- `DialogueLine.choices` field
+- `DialogueLine.crossSurfaceCooldown` field
+- `cooldown_play.surface` column (migration v3 → v4 recreate)
+- The 80-ish chain lines in `DrillSergeantLines` / `GentleMentorLines` /
+  `OracleLines` files
+- The same-encounter lock infrastructure
+- The `LAPSE_REACTIVE_COOLDOWN` constant + lint rule
+
+When v0.0.7 work starts and the metric has fired, the draft becomes
+an actual PR — no debate, no sunk-cost gravity, just executing a
+decision we already made under v0.0.6's clearer eyes.
+
+## Implementation order (round 4: Ally + Architect converge)
+
+Six PRs, each shippable / revertable independently:
+
+| # | Scope | ~Effort | Ships as |
+|---|---|---|---|
+| 1 | **Lint + skeleton**: `DialogueLine`, `Predicate`, `ConversationContext` data classes; empty per-archetype files; `DialogueLintTest` running green against zero lines. | 1d | infra-only PR |
+| 2 | **Schema + DAOs + migration**: three new tables, v2→v3 migration, `MigrationTestHelper` round-trip, `PantheonBackup` v2 format incl. dialogue state. | 2d | infra-only PR |
+| 3 | **Engine + Drill Sergeant full content + Daily-greeting integration**: `DialogueEngine.pickFor`, state batched in one DAO call, predicate object singletons, fallback seed `daemonId + epochDay`. One archetype proves the loop end-to-end. | 3d | v0.0.6-alpha internal |
+| 4 | **Remaining 9 archetypes' foreground content** (parallelizable authoring) + completion-toast + apotheosis-dialog integration. Lint covers every line. | 5-7d | **v0.0.6 PUBLIC RELEASE** |
+| 5 | **`ConversationScreen` + RESPONSE category + chains for Drill Sergeant / Gentle Mentor / Oracle** + same-encounter lock + `LAPSE_REACTIVE` cross-surface. | 4d | **v0.0.6.1 PUBLIC RELEASE** |
+| 6 | **`LineProvenance` dev overlay + tell-cooldown DataStore + screen-open metrics view** + `v0.0.7-cutdown.draft.md` committed. | 1d | shipped alongside v0.0.6.1 |
+
+**Phased release** (round 4: Skeptic + Ally + Architect all converge):
+- **v0.0.6** = engine + ambush track + all 10 archetypes' foreground
+  (~350 lines authored). The thing the Demolisher actually likes.
+- **v0.0.6.1** = `ConversationScreen` + RESPONSE + chains for 3 deep
+  archetypes (~80 more lines). The thing the user asked for.
+- Cleanly separates the trigger metric: v0.0.6 baseline = pure
+  inline; v0.0.6.1 adds the screen, screen_open_count starts
+  ticking.
+
+Author rate (round 4, Skeptic empirical estimate): 30-50 voice-loyal
+lines/day. ~3 weeks calendar to complete content authoring across
+both phases, plus chain coherence pass.
+
+## DI / layering / threading model (round 4, Architect)
+
+Hadn't been raised through round 3. Locked here:
+
+1. **`DialogueEngine` lives on `LifegameApplication.dialogueEngine: by lazy`**,
+   same manual-DI pattern as `repository`. No Hilt. Constructed with
+   the corpus + `DialogueStateStore`.
+2. **Corpus loading**: `DialogueCorpus.all` is a `val` flattening 10
+   archetype `object` declarations at class-init. Predicates are
+   **`object` declarations** (`object AfterLapse_1 : Predicate`)
+   interned at module load — **hard rule, not convention**. Lint
+   catches `class AfterLapse(1)`-style allocations in line files.
+3. **Threading**: `DialogueEngine.pickFor` is `suspend`, but the body
+   is pure CPU over an in-memory list plus **ONE batched DAO read**:
+   ```kotlin
+   data class DialogueState(
+       val played: Set<String>,
+       val playCounts: Map<String, Int>,
+       val lastPlayedAt: Map<String, Long>,
+       val activeCooldowns: Set<Pair<String, Surface>>,
+   )
+   suspend fun loadState(daemonId: Long): DialogueState  // one DAO trip
+   ```
+   The store batches all four into one transaction. `pickFor` then
+   runs entirely on the caller's dispatcher with no awaits inside the
+   filter chain. Toast click-handler completes in single-digit ms.
+4. **No in-memory cache** (resolves Architect's cache-invalidation
+   contract): every `pickFor` reads fresh from Room. With the batched
+   read, this is cheap enough. The race the Architect worried about
+   (user closes a major while Conversation screen is paged) can't
+   exist because the next `pickFor` sees the updated state.
+5. **Tell-cooldown** (renderer-side, round 3 Ally) lives in
+   DataStore Preferences keyed by `archetypeKey → lastUsedTellId`.
+   Lazy-read into a per-archetype `StateFlow`, write-through on each
+   tell pick. No new Room table.
+
+## Open questions for council round 5 (FINAL)
+
+Round 5 is the **sign-off round**. The design is implementation-ready;
+the only remaining job is confirming nothing structural is still
+wrong. Specific questions:
+
+1. **The `PantheonBackup` v2 format bump** (round 4 Skeptic-uncovered
+   bug, v5 fix). Including dialogue state in the backup honors
+   Believer's "play log IS the relationship" but it's a backup format
+   change after just shipping v1 last release. Worth it, or accept
+   degradation on restore as Skeptic's "backup-as-incarnation"
+   alternative?
+2. **The trigger threshold of < 2 median screen opens / active daemon /
+   week**. Round 4 (Skeptic + Demolisher) said the *shape* is right
+   (median, well-defined active). Is the number — 2 — calibrated?
+   Should it be 1? 3? What's the basis other than designer's gut?
+3. **The pre-committed cutdown draft file**. Is committing
+   `v0.0.7-cutdown.draft.md` actually a forcing function, or is it
+   theater that will rot? What keeps it honest?
+4. **The 6-PR sequence and 3-week author calendar**. Realistic, or
+   am I about to discover that line 250 of voice-loyal authoring is
+   when prose actually flattens?
+5. **Anything quietly wrong** that's been sitting in someone's
+   peripheral vision through rounds 1-4.
+
+Round 5 deliverable: either "ship it" or "one specific thing to fix
+before implementation starts."
 
 ## Council iteration log
 
@@ -783,4 +932,73 @@ verdict, two-percent improvement.
 - Demolisher's "cut the screen" — rejected per user ask; v0.0.7
   cutdown trigger encodes the deferred concession.
 
-Rounds 4–5+ will append below.
+### Round 4 — synthesis
+
+Believer: v0.0.7 cutdown trigger is honest IF instrumented in v0.0.6
+(otherwise theater). Mid-day-return needs `MinutesSinceLastForeground
+AtLeast(180)` WHEN-NOT guard. Accepted earned-predicate deferral.
+Round-5 hill: instrumentation must ship.
+
+Ally: 6-PR implementation sequence. Phased release (v0.0.6 = engine
++ ambush + foreground; v0.0.6.1 = screen + chains). Fallback seed
+`daemonId + epochDay` (recomposition flicker fix). Lock
+`recencyKey` enum order with unit test.
+
+Architect: cut `replacedBy` runtime rewrite — lint already forbids
+the unreachable case. Document deprecation playbook. `surface =
+'BOTH'` row pattern confirmed cleanest. **DI / layering / threading
+not raised through round 3** — engine on `LifegameApplication`,
+predicate `object` declarations as hard rule, batched single-DAO
+state read in `pickFor`, no in-memory cache. Engine cache
+invalidation contract resolved by "always re-read, batched, fast."
+
+Skeptic: stood down on full vertical-slice. **Surfaced backup-voice-
+continuity bug** — daemon_state excluded from backup means restoring
+gives stranger-Athleta. Defined active daemon (≥1 minor completion
+trailing 7d AND created ≥7d ago) and threshold form (median over 14d
+after 7d settle-in). Author rate empirical: 30-50 lines/day, ~3
+weeks calendar.
+
+Demolisher: trigger papered over without pre-staged cut PR. Single
+veto for round 5: `replacedBy` runtime rewrite (converges with
+Architect on this). Median not mean (converges with Skeptic).
+Active-daemon def must protect denominator from self-gaming.
+Verdict revised: "quiet uninstall of a feature, not the app" —
+progress acknowledged.
+
+**Resolutions encoded into v5:**
+- `replacedBy` runtime rewrite **CUT** (Architect + Demolisher
+  converge); lint-only sufficient given deprecation playbook now
+  documented inline
+- `PantheonBackup` bumps to format v2, carries `line_seen` +
+  `cooldown_play` + `daemon_state` (Skeptic backup-voice bug)
+- Trigger threshold: **median** opens / active daemon / week, ≥ 2,
+  over 14d after 7d settle-in (Skeptic + Demolisher)
+- Active daemon definition: ≥1 minor completion trailing 7d AND
+  created ≥7d ago (Skeptic + Demolisher)
+- `screen_open_count` + `last_screen_open_at` on `daemon_state`,
+  surfaced in dev `LineProvenance` overlay AND in a dev-build
+  Settings row (Believer instrumentation demand)
+- `v0.0.7-cutdown.draft.md` committed alongside v0.0.6, enumerating
+  exactly what gets deleted (Demolisher's honest-trigger move)
+- Engine threading: `pickFor` batches state into ONE DAO call, no
+  cache (Architect)
+- Predicate `object` singletons as hard lint rule (Architect)
+- `MinutesSinceLastForegroundAtLeast(180)` on mid-day-return
+  (Believer)
+- Fallback render seed `daemonId XOR epochDay` (Ally)
+- `recencyKey.ordinal` lock unit test (Ally)
+- Deprecation playbook documented in-line (Architect)
+- 6-PR implementation order locked (Ally + Architect)
+- Phased release v0.0.6 + v0.0.6.1 (Skeptic + Ally + Architect)
+
+**Tensions remaining unresolved (round 5 to test):**
+- Whether `PantheonBackup` format bump is right call vs "backup-as-
+  incarnation" (Skeptic's alternative).
+- Whether 2-opens threshold is calibrated or arbitrary.
+- Whether pre-committed cutdown draft is forcing function or theater.
+
+### Round 5 — pending
+
+Round 5 is the sign-off round. Deliverable: "ship it" OR "one
+specific thing to fix before implementation."
