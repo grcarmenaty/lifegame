@@ -69,6 +69,17 @@ Scaffold is in place. The app builds, runs, and ships:
   cross-surface cooldown on lapse-reactive lines, recencyKey enum
   order, and the load-bearing 180-min foreground floor on
   mid-day-return openers.
+- **Daemon notifications** (v0.0.7) in `domain/notify/`: WorkManager
+  periodic `NudgeWorker` (~2-hour interval, posts at most one
+  notification per run for human-friendly rate-limiting). Notification
+  text is picked from the dialogue engine via the new `NUDGE`
+  `LineCategory`, so each archetype's voice carries through into its
+  notifications — Drill Sergeant nags, Hermit barely speaks. Settings
+  has a master toggle + quiet hours (DataStore prefs). Per-daemon
+  `notificationsEnabled` lives on `daemon_state`. Android 13+
+  POST_NOTIFICATIONS permission requested in-app when the master
+  toggle is first turned on. Tapping a notification deep-links to the
+  daemon's detail screen via `MainActivity.intent` extras.
 
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):

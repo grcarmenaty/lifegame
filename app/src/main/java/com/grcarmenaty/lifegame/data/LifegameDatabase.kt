@@ -23,7 +23,7 @@ import com.grcarmenaty.lifegame.data.entities.MinorQuest
         Daemon::class, MajorQuest::class, MinorQuest::class, Boon::class,
         LineSeen::class, CooldownPlay::class, DaemonState::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -42,7 +42,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                     LifegameDatabase::class.java,
                     "lifegame.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }
@@ -156,6 +156,24 @@ internal val MIGRATION_1_2 = object : Migration(1, 2) {
  * missing row as zero-everything. The repository inserts a row lazily on
  * the first dialogue event.
  */
+/**
+ * v3 → v4: pure additive — adds `notificationsEnabled` and
+ * `lastNudgeAt` to `daemon_state` for v0.0.7 notifications.
+ *
+ * `ALTER TABLE ... ADD COLUMN` is safe here (no FK additions on
+ * existing rows); existing rows take the defaults.
+ */
+internal val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `daemon_state` ADD COLUMN `notificationsEnabled` INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "ALTER TABLE `daemon_state` ADD COLUMN `lastNudgeAt` INTEGER"
+        )
+    }
+}
+
 internal val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

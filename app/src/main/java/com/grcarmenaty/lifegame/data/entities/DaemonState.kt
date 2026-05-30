@@ -37,4 +37,8 @@ data class DaemonState(
     val wishesSpentTotal: Int = 0,
     val screenOpenCount: Int = 0,
     val lastScreenOpenAt: Long? = null,
+    /** Per-daemon notification toggle — added v0.0.7. */
+    val notificationsEnabled: Boolean = true,
+    /** Last time a nudge was actually shown; used by the worker to rate-limit. */
+    val lastNudgeAt: Long? = null,
 )

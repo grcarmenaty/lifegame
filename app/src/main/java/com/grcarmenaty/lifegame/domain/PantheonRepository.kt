@@ -99,6 +99,45 @@ class PantheonRepository(
         )
     }
 
+    // ---- Nudge worker support (v0.0.7) ----
+
+    data class DaemonNudgeRow(
+        val daemonId: Long,
+        val daemonName: String,
+        val notificationsEnabled: Boolean,
+        val lastNudgeAt: Long?,
+    )
+
+    /**
+     * Daemons the nudge worker should consider. Lazy-creates the
+     * `daemon_state` row for daemons that don't have one yet so the
+     * default `notificationsEnabled = true` lights up.
+     */
+    suspend fun allDaemonsForNudge(): List<DaemonNudgeRow> {
+        return daemonDao.getAll().map { d ->
+            val state = dialogueStateStore.ensureDaemonState(d.id)
+            DaemonNudgeRow(
+                daemonId = d.id,
+                daemonName = d.name,
+                notificationsEnabled = state.notificationsEnabled,
+                lastNudgeAt = state.lastNudgeAt,
+            )
+        }
+    }
+
+    /** Engine pick for a NUDGE line, mark-played, returns text or null. */
+    suspend fun pickNudgeLine(daemonId: Long): String? =
+        pickInline(daemonId, LineCategory.NUDGE)
+
+    suspend fun recordNudgeShown(daemonId: Long) {
+        dialogueDao.recordNudge(daemonId, System.currentTimeMillis())
+    }
+
+    suspend fun setNotificationsEnabled(daemonId: Long, enabled: Boolean) {
+        dialogueStateStore.ensureDaemonState(daemonId)
+        dialogueDao.setNotificationsEnabled(daemonId, enabled)
+    }
+
     /**
      * Engine pick + mark-played. Returns the rendered text or null if no
      * eligible line. Callers fall back to [VoicePreset] templated lines.

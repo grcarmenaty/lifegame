@@ -36,7 +36,7 @@ data class DialogueLine(
 )
 
 enum class LineTier { FILLER, CONTEXTUAL, ESSENTIAL }
-enum class LineCategory { OPENER, COMPLETION, APOTHEOSIS, RESPONSE }
+enum class LineCategory { OPENER, COMPLETION, APOTHEOSIS, RESPONSE, NUDGE }
 enum class PreferredSurface { EITHER, INLINE, SCREEN }
 enum class TellStyle { NONE, ELLIPSIS, SNAP, FADE, PACE }
 

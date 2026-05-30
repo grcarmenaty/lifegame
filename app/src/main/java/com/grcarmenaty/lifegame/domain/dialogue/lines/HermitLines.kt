@@ -39,5 +39,17 @@ internal object HermitLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE — quiet noticing
+        DialogueLine("he_nudge_morning", A,
+            "The lamp is on. The work is here when you wish.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "he_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("he_nudge_evening", A,
+            "Evening. Whatever the day was, it has passed.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "he_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

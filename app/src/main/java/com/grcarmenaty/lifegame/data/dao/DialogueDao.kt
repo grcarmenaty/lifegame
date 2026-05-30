@@ -62,6 +62,12 @@ interface DialogueDao {
     @Query("UPDATE daemon_state SET screenOpenCount = screenOpenCount + 1, lastScreenOpenAt = :at WHERE daemonId = :daemonId")
     suspend fun recordScreenOpen(daemonId: Long, at: Long)
 
+    @Query("UPDATE daemon_state SET notificationsEnabled = :enabled WHERE daemonId = :daemonId")
+    suspend fun setNotificationsEnabled(daemonId: Long, enabled: Boolean)
+
+    @Query("UPDATE daemon_state SET lastNudgeAt = :at WHERE daemonId = :daemonId")
+    suspend fun recordNudge(daemonId: Long, at: Long)
+
     @Query("DELETE FROM daemon_state")
     suspend fun deleteAllDaemonState()
 

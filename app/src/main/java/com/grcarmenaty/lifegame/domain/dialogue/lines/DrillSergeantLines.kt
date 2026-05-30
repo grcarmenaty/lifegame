@@ -206,5 +206,30 @@ internal object DrillSergeantLines {
             recencyKey = RecencyKey.TODAY,
             stateRequirements = listOf(Level_5),
         ),
+
+        // -------- NUDGE (notifications) --------
+
+        DialogueLine("ds_nudge_morning", A,
+            "Morning. The list isn't going to do itself.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "ds_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ds_nudge_afternoon_zero", A,
+            "Half the day. Nothing closed. Pick one.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "ds_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ds_nudge_evening", A,
+            "Evening. Anything left undone reflects on both of us.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "ds_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ds_nudge_lapse", A,
+            "You missed yesterday. Today fixes that. Move.",
+            LineTier.ESSENTIAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AfterLapse_1),
+            cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
+            cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

@@ -100,6 +100,10 @@ class DaemonDetailViewModel(
         viewModelScope.launch { repository.deleteBoon(boonId) }
     }
 
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setNotificationsEnabled(daemonId, enabled) }
+    }
+
     fun addMajor(title: String) {
         viewModelScope.launch { repository.addMajor(daemonId, title.trim()) }
     }

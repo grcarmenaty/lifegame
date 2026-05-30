@@ -1,9 +1,12 @@
 package com.grcarmenaty.lifegame.ui.settings
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,9 +27,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +52,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.BuildConfig
 import com.grcarmenaty.lifegame.domain.PantheonRepository
+import com.grcarmenaty.lifegame.domain.notify.NotificationPrefs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -148,6 +156,10 @@ fun SettingsScreen(
                     enabled = !busy,
                     onAction = { showImportConfirm = true },
                 )
+            }
+
+            Section(title = "Notifications") {
+                NotificationSettingsCard()
             }
 
             Section(title = "Danger") {
@@ -268,6 +280,98 @@ private fun ActionCard(
             } else {
                 Button(onClick = onAction, enabled = enabled) { Text(actionLabel) }
             }
+        }
+    }
+}
+
+@Composable
+private fun NotificationSettingsCard() {
+    val context = LocalContext.current
+    val prefs = remember { NotificationPrefs(context) }
+    val scope = rememberCoroutineScope()
+
+    val masterEnabled by prefs.masterEnabled.collectAsState(initial = true)
+    val quietStart by prefs.quietStart.collectAsState(initial = 22)
+    val quietEnd by prefs.quietEnd.collectAsState(initial = 8)
+
+    var startText by rememberSaveable(quietStart) { mutableStateOf(quietStart.toString()) }
+    var endText by rememberSaveable(quietEnd) { mutableStateOf(quietEnd.toString()) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (!granted) {
+            // User denied — keep the master toggle on but warn via the
+            // body copy. System notification settings still allow them
+            // to opt back in.
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Daemon nudges",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Each daemon decides when you should pay attention to its " +
+                            "quests, and speaks in its own voice. Rate-limited.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = masterEnabled,
+                    onCheckedChange = { newValue ->
+                        scope.launch { prefs.setMaster(newValue) }
+                        if (newValue && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Quiet hours (no nudges)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = startText,
+                    onValueChange = { v -> startText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Start hour (0-23)") },
+                )
+                OutlinedTextField(
+                    value = endText,
+                    onValueChange = { v -> endText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("End hour (0-23)") },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    val s = startText.toIntOrNull() ?: 22
+                    val e = endText.toIntOrNull() ?: 8
+                    scope.launch { prefs.setQuietHours(s, e) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = (startText.toIntOrNull() != null && endText.toIntOrNull() != null) &&
+                    (startText.toInt() != quietStart || endText.toInt() != quietEnd),
+            ) { Text("Save quiet hours") }
         }
     }
 }

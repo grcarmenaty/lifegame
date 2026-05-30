@@ -44,5 +44,22 @@ internal object OracleLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE
+        DialogueLine("or_nudge_morning", A,
+            "Dawn finds you. The path is named.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "or_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("or_nudge_afternoon_zero", A,
+            "The afternoon turns. The thread waits to be picked up.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "or_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("or_nudge_evening", A,
+            "Light fades. What you do now is what is remembered.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "or_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

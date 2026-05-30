@@ -52,5 +52,22 @@ internal object GentleMentorLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE — gentle, no shame
+        DialogueLine("gm_nudge_morning", A,
+            "Good morning. A few small things, when you'd like.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "gm_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("gm_nudge_afternoon_zero", A,
+            "Just checking in. One small thing is plenty.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "gm_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("gm_nudge_evening", A,
+            "Evening. Whatever you managed today was enough.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "gm_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

@@ -6,6 +6,8 @@ import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueStateStore
 import com.grcarmenaty.lifegame.domain.dialogue.lines.DialogueCorpus
+import com.grcarmenaty.lifegame.domain.notify.NotificationChannels
+import com.grcarmenaty.lifegame.domain.notify.NudgeScheduler
 
 class LifegameApplication : Application() {
 
@@ -26,5 +28,11 @@ class LifegameApplication : Application() {
             dialogueEngine,
             dialogueStateStore,
         )
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        NotificationChannels.ensureCreated(this)
+        NudgeScheduler.schedule(this)
     }
 }

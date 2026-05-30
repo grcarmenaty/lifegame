@@ -39,5 +39,22 @@ internal object TherapistLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE — caring inquiry, no shame
+        DialogueLine("th_nudge_morning", A,
+            "How are you today? There's one small thing if you'd like.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "th_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("th_nudge_afternoon_zero", A,
+            "Checking in. No pressure — what feels possible?",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "th_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("th_nudge_evening", A,
+            "Evening. Whatever today was, you showed up.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "th_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

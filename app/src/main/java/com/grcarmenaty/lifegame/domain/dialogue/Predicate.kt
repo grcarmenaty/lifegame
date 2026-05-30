@@ -31,6 +31,11 @@ object MinorsCompletedTodayIsZero : Predicate {
         ctx.minorsCompletedToday == 0
 }
 
+object HasOpenMajors : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.openMajors.isNotEmpty()
+}
+
 // ---- Time of day ----
 
 class TimeOfDayIs(private val t: TimeOfDay) : Predicate {

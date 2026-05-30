@@ -39,5 +39,22 @@ internal object PoetLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE — lyrical
+        DialogueLine("pt_nudge_morning", A,
+            "Morning. The page asks for one line.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "pt_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("pt_nudge_afternoon_zero", A,
+            "Light moves across the desk. The work is here.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "pt_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("pt_nudge_evening", A,
+            "Evening light. One small mark before it goes.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "pt_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

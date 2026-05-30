@@ -43,5 +43,22 @@ internal object CheerleaderLines {
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
             lifeEvent = true,
             stateRequirements = listOf(MajorsClosed_1)),
+
+        // NUDGE — hyperbolic
+        DialogueLine("ch_nudge_morning", A,
+            "HI! Today's a GREAT day for tiny wins!! Tap me!",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Morning, HasOpenMajors),
+            cooldownGroup = "ch_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ch_nudge_afternoon_zero", A,
+            "Hi babe!! Quick one — there's still tons of day left. Let's GO.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
+            cooldownGroup = "ch_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ch_nudge_evening", A,
+            "End-of-day vibes! Quick one before bed?? You CAN.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
+            cooldownGroup = "ch_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
     )
 }

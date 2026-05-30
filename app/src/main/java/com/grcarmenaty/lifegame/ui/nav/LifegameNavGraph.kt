@@ -7,6 +7,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,8 +36,20 @@ private object Routes {
 }
 
 @Composable
-fun LifegameNavGraph(repository: PantheonRepository) {
+fun LifegameNavGraph(
+    repository: PantheonRepository,
+    pendingDaemonId: MutableState<Long?> = remember { mutableStateOf(null) },
+) {
     val nav = rememberNavController()
+    // When the app is launched via a nudge notification tap, navigate to
+    // the daemon detail screen. Single-use: clear the value after dispatch.
+    LaunchedEffect(pendingDaemonId.value) {
+        val id = pendingDaemonId.value ?: return@LaunchedEffect
+        nav.navigate(Routes.detail(id)) {
+            launchSingleTop = true
+        }
+        pendingDaemonId.value = null
+    }
     NavHost(navController = nav, startDestination = Routes.LOADING) {
         composable(Routes.LOADING) {
             var decided by remember { mutableStateOf(false) }
