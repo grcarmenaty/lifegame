@@ -89,6 +89,120 @@ enum class VoicePreset(
             "Plot twist: you're winning. Annoying.",
             "I'll allow it. Next?"
         )
+    ),
+    STOIC(
+        displayName = "Stoic",
+        sample = "What matters is the action, not the praise. Begin.",
+        greetings = listOf(
+            "The day arrives. Do what you can. Accept the rest.",
+            "A morning, no different from any other. The work waits.",
+            "You have what you have. Begin where you are."
+        ),
+        completions = listOf(
+            "Done. Move on.",
+            "One thing at peace. Continue.",
+            "Acceptable."
+        ),
+        apotheoses = listOf(
+            "A chapter closes. The river runs on.",
+            "What you intended, you completed. That is enough.",
+            "The work was the reward. Yet more is given."
+        )
+    ),
+    CHEERLEADER(
+        displayName = "Cheerleader",
+        sample = "Look at you! Honestly — incredible. Let's GO.",
+        greetings = listOf(
+            "Hi friend!! Today is going to be GREAT. Look at this list!",
+            "You're back! I was thinking about you. Tiny things, huge wins!",
+            "Okay okay okay — we got this. Pick one. Any one. Champion energy."
+        ),
+        completions = listOf(
+            "YES. Did you see how you just did that?? Iconic.",
+            "Logged. Loved. Let's keep this energy.",
+            "Stop, I'm getting emotional. Beautiful work."
+        ),
+        apotheoses = listOf(
+            "We did it!! Look at how far we've come! I'm crying actually.",
+            "Level UP! That's you. That's all you. I'm just here cheering.",
+            "Apotheosis behavior. I knew it. I always knew."
+        )
+    ),
+    POET(
+        displayName = "Poet",
+        sample = "Begin gently. The day is a draft you may revise.",
+        greetings = listOf(
+            "Morning unfolds, a page that asks to be marked.",
+            "Light catches the work. Step into it.",
+            "Today wears your name lightly. Wear it back."
+        ),
+        completions = listOf(
+            "A stanza, finished. The poem grows.",
+            "The line lands. The room is changed.",
+            "Small word, large echo."
+        ),
+        apotheoses = listOf(
+            "A chapter closes — you wrote it well.",
+            "The arc bends. You are no longer who you were.",
+            "An ascension, quiet as ink drying."
+        )
+    ),
+    THERAPIST(
+        displayName = "Therapist",
+        sample = "Notice what you notice. Begin where you can.",
+        greetings = listOf(
+            "Good to see you. What's coming up for you today?",
+            "Take a breath. Here's what's on the table, when you're ready.",
+            "We don't have to do it all. What's one thing?"
+        ),
+        completions = listOf(
+            "That mattered. How did it feel?",
+            "Good. Let's hold that for a moment.",
+            "Thank you for showing up."
+        ),
+        apotheoses = listOf(
+            "Big moment. Be with it before you rush to the next.",
+            "You did the thing. Notice that you did the thing.",
+            "Something has shifted. We can sit with that."
+        )
+    ),
+    COACH(
+        displayName = "Coach",
+        sample = "Game plan. Three reps. Let's work.",
+        greetings = listOf(
+            "Morning. Here's the slate. Pick your target.",
+            "Time on the clock. We're moving.",
+            "Today's plays — let's run them."
+        ),
+        completions = listOf(
+            "Rep counted. Reset. Go again.",
+            "Tight execution. Stack another.",
+            "Good rep. Now do it better."
+        ),
+        apotheoses = listOf(
+            "That's a W. Bank it. Tomorrow we raise the bar.",
+            "You closed it out. Promotion earned.",
+            "Game over — championship behavior."
+        )
+    ),
+    HERMIT(
+        displayName = "Hermit",
+        sample = "I have been here. I have noticed. The work is small and good.",
+        greetings = listOf(
+            "I am here. The work is here. Begin when you wish.",
+            "Few things asked today. Each one quiet.",
+            "Take what you need. Leave what you don't."
+        ),
+        completions = listOf(
+            "I noticed. That's enough.",
+            "Yes. The small thing is the whole thing.",
+            "Done. The room is still."
+        ),
+        apotheoses = listOf(
+            "Something is finished. We will not speak loudly of it.",
+            "A passage. I have witnessed it.",
+            "The lamp glows differently now. That is all."
+        )
     );
 
     fun greeting(seed: Long): String = greetings.pick(seed)
