@@ -302,30 +302,63 @@ daemons are slow to penalize and quick to thank.
 
 ---
 
-## 9. Council brief (this round)
+## 9. Council round outcomes (final)
 
-A council pass on this whole plan before implementation. Focus areas:
+Five seats reported. User decisions on the contested points are
+encoded below; implementation begins with this section as the spec.
 
-1. **Tier curve coherence** (§3.1): does 10 / 25 / 50 / 75 feel
-   right? Is max level 4 a stunting cap, a focusing constraint, or a
-   missed opportunity?
-2. **Decay calibration** (§3.2 + §7): a Drill Sergeant daemon at
-   5/day decay, 1 grace day — does that read as "tough love" or
-   "shame amplifier" given the v0.0.6 dialogue council's surveillance
-   guard?
-3. **Boon level-up mechanic** (§3.4): a new modal moment tied to
-   level changes. Authoring burden, fatigue risk, interaction with
-   apotheosis dialog. Believer might fight for this hardest; Demolisher
-   might call it ceremony.
-4. **Migration backfill** (§3.1): existing daemons get
-   `attentionPoints = completedMajorCount × 25 + sum(progressCount)`.
-   Does this produce defensible ranks for current users? Risk of
-   surprise demotion or sudden over-promotion?
-5. **One-version-vs-split** (§4): user wants everything in v0.0.10.
-   Architect: real implementation/regression risk? Skeptic: vertical
-   slice would have been smaller — accept or fight?
-6. **Summoning guidance copy** (§3.5): "stay small with boons" is
-   product-tone advice in the ritual. Manipulative or helpful?
-   Believer's call.
+**Universally adopted (no controversy):**
+- Architect engineering fixes: `INSERT OR IGNORE daemon_state` in
+  migration, cap `progressCount` contribution at `thresholdCount` per
+  major, init `lastAttentionUpdateAt = now()` in migration so first
+  worker tick doesn't decay by `daysSinceEpoch × decayPerDay`,
+  centralize level-up trigger in Repository returning `LevelUpEvent?`,
+  expose as `SharedFlow`, queue *after* apotheosis dialog,
+  `NudgeWorker` calls decay inline first, `MigrationTestHelper`
+  round-trip test is **blocking**, extract `AttentionBackfill.compute`
+  helper used in both migration and v2 backup import path.
+- Ally polish: `lastSeenLevel` never rewinds on decay, multi-level
+  jump fires once with `lastSeenLevel = current` and a unit test
+  asserts the case, epic chapter prompt pre-fills date + closed
+  major title as scaffolding.
 
-Five-seat round, one round, then synthesize and report.
+**User decisions on contested points:**
+
+| Question | Decision |
+|---|---|
+| 1. Decay shape | Skeptic guard (pause decay when notifications off OR no foreground sessions in window) **plus** per-daemon user toggle to disable decay outright |
+| 2. Boon level-up gate | **Keep** (Believer/Ally) — gate is what makes the moment matter |
+| 3. Buffer above 160 | Make it visible: shimmer pip / reserve indicator (Ally) so continued work above level 4 reads as relationship investment, not hidden hoarding |
+| 4. Backfill display | Trust — no first-launch delta dialog. Users discover the new model via the changed level bar |
+| 5. "Stay small" copy | Per-archetype voice variants (Ally) — daemon speaks the advice in its own register, copy lives next to the daemon's other authored lines |
+
+**Author judgment calls overlaid on user decisions:**
+- **Decay attribution in dialogue (`recentLevelLoss` predicate)** —
+  Ally's polish #3, deferred to v0.0.11. Significant authoring work
+  (10 archetype lines) for what amounts to "the daemon notices it
+  shrank." For v0.0.10 the bar drop is the signal; voice catches up
+  in v0.0.11.
+- **Modal vs banner for batched level-up review** — Ally proposed
+  "next quiet open" surface. Implementing as a persistent **Daily
+  banner** (small card top-of-list, dismissible only by addressing
+  the level-ups) rather than a modal. Never interrupts tapping
+  minors; reads as a notification of relationship change, not a
+  demand for creative work.
+- **Per-daemon notification disable surfaces in v0.0.10** — the
+  repository + DAO + VM method already shipped in v0.0.7 with no
+  UI. Wiring the Switch on the detail screen now serves two ends:
+  exposes the missing UI, and provides one of the decay-pause
+  inputs (Skeptic guard reads `daemon_state.notificationsEnabled`).
+
+**Dissents recorded but overridden by user decision:**
+- Demolisher: cut decay entirely, cut backfill, strip the gate on
+  boon level-up. Position stated; user has weighed in differently.
+  Demolisher's epitaph stands as a v0.0.10-failure-mode benchmark:
+  if the metrics show the relationship surface getting buried under
+  the stat surface 6 months out, the cut path is available.
+- Skeptic: level 0 displayable reads as "the daemon is dead." User
+  has chosen to keep 0 displayable. Skeptic's concern is logged.
+
+**Implementation begins.** PR ordering per Architect: schema +
+migration + backfill + test → repo logic → workers → UI. Branch
+only; no main push until user gives ship signal.
