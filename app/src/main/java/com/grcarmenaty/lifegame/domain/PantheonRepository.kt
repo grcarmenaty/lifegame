@@ -3,11 +3,17 @@ package com.grcarmenaty.lifegame.domain
 import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
 import com.grcarmenaty.lifegame.data.dao.DialogueDao
+import com.grcarmenaty.lifegame.data.dao.EpicChapterDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
+import com.grcarmenaty.lifegame.data.entities.DaemonState
+import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.attention.AttentionConfig
+import com.grcarmenaty.lifegame.domain.attention.AttentionDecay
+import com.grcarmenaty.lifegame.domain.attention.AttentionMath
 import com.grcarmenaty.lifegame.domain.dialogue.ConversationContext
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueLine
@@ -15,7 +21,11 @@ import com.grcarmenaty.lifegame.domain.dialogue.DialogueStateStore
 import com.grcarmenaty.lifegame.domain.dialogue.LineCategory
 import com.grcarmenaty.lifegame.domain.dialogue.Surface
 import com.grcarmenaty.lifegame.domain.dialogue.TimeOfDay
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -41,8 +51,23 @@ class PantheonRepository(
     private val dialogueDao: DialogueDao,
     private val dialogueEngine: DialogueEngine,
     private val dialogueStateStore: DialogueStateStore,
+    private val epicChapterDao: EpicChapterDao,
+    private val attentionDecay: AttentionDecay,
 ) {
     private val defaultThresholdForAddedMajor = 3
+
+    /**
+     * Emits when a daemon's computed level rises above its
+     * `lastSeenLevel`. UI listens via [LaunchedEffect] and queues the
+     * boon-level-up review banner. `extraBufferCapacity = 16` so a
+     * burst of completions across daemons doesn't drop events.
+     */
+    private val _levelUps = MutableSharedFlow<LevelUpEvent>(
+        replay = 0,
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val levelUps: SharedFlow<LevelUpEvent> = _levelUps.asSharedFlow()
 
     // ---- Dialogue engine integration ----
 
@@ -191,8 +216,101 @@ class PantheonRepository(
 
     suspend fun vanishDaemon(id: Long) = daemonDao.deleteById(id)
 
-    suspend fun levelOf(daemonId: Long): Int =
-        1 + questDao.countCompletedMajorsForDaemon(daemonId)
+    /**
+     * v0.0.10: level is now attention-derived. Falls back to the
+     * pre-migration formula (1 + completed-majors) only if the
+     * `daemon_state` row hasn't been created yet (shouldn't happen
+     * post-migration — every daemon gets a row via INSERT OR IGNORE).
+     */
+    suspend fun levelOf(daemonId: Long): Int {
+        val state = dialogueDao.daemonState(daemonId)
+        return if (state == null) {
+            1 + questDao.countCompletedMajorsForDaemon(daemonId)
+        } else {
+            AttentionMath.levelFor(state.attentionPoints)
+        }
+    }
+
+    /** Read accessor for UI to display the attention-point counter. */
+    suspend fun attentionOf(daemonId: Long): Int =
+        dialogueDao.daemonState(daemonId)?.attentionPoints ?: 0
+
+    /** Observable per-daemon state — used by detail screen to react to
+     *  attention/decay changes without per-tick polling. */
+    fun observeDaemonState(daemonId: Long): Flow<DaemonState?> =
+        dialogueDao.observeDaemonState(daemonId)
+
+    /** All daemon_state rows, observable — for the Daily screen banner
+     *  that surfaces pending level-ups. */
+    fun observeAllDaemonState(): Flow<List<DaemonState>> =
+        dialogueDao.observeAllDaemonState()
+
+    /**
+     * Returns the resolved decay/accrual config for [daemonId] — used
+     * by the detail screen edit form to display the effective values.
+     */
+    suspend fun resolvedAttentionConfig(daemonId: Long) =
+        getDaemon(daemonId)?.let { daemon ->
+            val state = dialogueStateStore.ensureDaemonState(daemonId)
+            AttentionConfig.resolve(state, VoicePreset.fromKey(daemon.voicePreset))
+        }
+
+    suspend fun setDecayOverride(daemonId: Long, decayPerDay: Int?, graceDays: Int?) {
+        dialogueStateStore.ensureDaemonState(daemonId)
+        dialogueDao.setDecayOverride(daemonId, decayPerDay, graceDays)
+    }
+
+    suspend fun setDecayDisabled(daemonId: Long, disabled: Boolean) {
+        dialogueStateStore.ensureDaemonState(daemonId)
+        dialogueDao.setDecayDisabled(daemonId, disabled)
+    }
+
+    suspend fun setMinorsPerBoonOverride(daemonId: Long, minorsPerBoon: Int?) {
+        dialogueStateStore.ensureDaemonState(daemonId)
+        dialogueDao.setMinorsPerBoonOverride(daemonId, minorsPerBoon)
+    }
+
+    /**
+     * Pending level-up addressables for the Daily banner. A daemon is
+     * pending if its computed level exceeds its `lastSeenLevel`.
+     */
+    suspend fun pendingLevelUpDaemons(): List<DaemonState> =
+        dialogueDao.allDaemonState().filter {
+            AttentionMath.levelFor(it.attentionPoints) > it.lastSeenLevel
+        }
+
+    /** Bump `lastSeenLevel` after the user acknowledges a level-up. */
+    suspend fun acknowledgeLevelUp(daemonId: Long) {
+        val state = dialogueDao.daemonState(daemonId) ?: return
+        val current = AttentionMath.levelFor(state.attentionPoints)
+        if (current > state.lastSeenLevel) {
+            dialogueDao.bumpLastSeenLevel(daemonId, current)
+        }
+    }
+
+    // ---- Epic chapters ----
+
+    fun observeEpicChapters(daemonId: Long): Flow<List<EpicChapter>> =
+        epicChapterDao.observeForDaemon(daemonId)
+
+    suspend fun addEpicChapter(daemonId: Long, text: String) {
+        if (text.isBlank()) return
+        val position = epicChapterDao.countForDaemon(daemonId)
+        epicChapterDao.insert(
+            EpicChapter(daemonId = daemonId, position = position, text = text.trim())
+        )
+    }
+
+    suspend fun deleteEpicChapter(chapterId: Long) = epicChapterDao.deleteById(chapterId)
+
+    // ---- Decay (called by workers) ----
+
+    /** Run decay for every daemon. Used by the periodic decay worker
+     *  and as the first step of [NudgeWorker] (Architect's "decay
+     *  before nudge" rule). */
+    suspend fun runDecay() {
+        attentionDecay.applyForAll()
+    }
 
     suspend fun summonDaemon(
         name: String,
@@ -232,40 +350,74 @@ class PantheonRepository(
     }
 
     /**
-     * Mark a minor quest complete. The minor's contribution accumulates
-     * onto its parent major's [MajorQuest.progressCount] for tracking,
-     * but **never** auto-closes the major — closing a major is a user
-     * decision (see [completeMajor]). Minors are small repeatable or
-     * one-off acts; the major is a month-scale goal whose completion
-     * the user controls.
+     * Mark a minor quest complete. Side effects:
+     *  - the minor row updates (one-off → completed; daily → today
+     *    flagged as done)
+     *  - progressCount on the parent major bumps (informational only;
+     *    the major **never** auto-closes, see [completeMajor])
+     *  - the daemon's `attentionPoints` grows by `minor.weight`
+     *  - the daemon's `minorsCompletedSinceAccrual` increments; if it
+     *    reaches the resolved threshold, +1 to the daemon's first
+     *    boon and counter resets
+     *  - if attention crosses a level threshold, [levelUps] emits
      */
     suspend fun completeMinor(minorId: Long) {
         val minor = questDao.getMinorById(minorId) ?: return
         if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return
+        val now = System.currentTimeMillis()
         if (minor.cadence == MinorQuest.CADENCE_DAILY &&
-            minor.lastCompletedAt?.let { sameLocalDay(it, System.currentTimeMillis()) } == true) {
+            minor.lastCompletedAt?.let { sameLocalDay(it, now) } == true) {
             return
         }
 
         questDao.updateMinor(
             minor.copy(
                 completed = minor.cadence == MinorQuest.CADENCE_ONE_OFF,
-                lastCompletedAt = System.currentTimeMillis(),
+                lastCompletedAt = now,
             )
         )
 
         val major = questDao.getMajorById(minor.majorQuestId) ?: return
-        if (major.completed) return
-        // Track-only: progressCount accumulates as informational signal,
-        // but the major's `completed` flag is never flipped here.
-        questDao.updateMajor(major.copy(progressCount = major.progressCount + minor.weight))
+        if (!major.completed) {
+            // Track-only: progressCount accumulates as informational
+            // signal, but the major's `completed` flag is never flipped
+            // here.
+            questDao.updateMajor(major.copy(progressCount = major.progressCount + minor.weight))
+        }
+
+        val daemonId = major.daemonId
+        val daemon = daemonDao.getById(daemonId) ?: return
+        val state = dialogueStateStore.ensureDaemonState(daemonId)
+        val voice = VoicePreset.fromKey(daemon.voicePreset)
+        val cfg = AttentionConfig.resolve(state, voice)
+
+        val before = state.attentionPoints
+        val after = before + minor.weight
+        dialogueDao.addAttention(daemonId, minor.weight, now)
+        emitLevelUpIfCrossed(daemon, before, after, state.lastSeenLevel)
+
+        // Boon-from-minors accrual: bump counter, fire on threshold.
+        val nextCounter = state.minorsCompletedSinceAccrual + 1
+        if (nextCounter >= cfg.minorsPerBoonAccrual) {
+            val firstBoon = boonDao.getForDaemon(daemonId).firstOrNull()
+            if (firstBoon != null) {
+                boonDao.incrementCount(firstBoon.id, 1)
+            }
+            dialogueDao.setMinorsCompletedSinceAccrual(daemonId, 0)
+        } else {
+            dialogueDao.setMinorsCompletedSinceAccrual(daemonId, nextCounter)
+        }
     }
 
     /**
-     * User-driven close of a major. This is the only path that triggers
-     * apotheosis (daemon level-up + boon deposit). Returns the event so
-     * the UI can show the in-voice dialog; returns null if the major
-     * doesn't exist or is already closed.
+     * User-driven close of a major. Deposits a flat +25 attention
+     * bonus (per v0.0.10 plan §3.1) and emits a [LevelUpEvent] if the
+     * deposit tips through a level threshold.
+     *
+     * NOTE: boon deposit is GONE under the new model — boons accrue
+     * from ongoing minor work, not from discrete major closures. The
+     * `wishBoonId` / `wishRewardCount` columns on `major_quests` are
+     * vestigial and will be dropped in a future schema-cleanup pass.
      */
     suspend fun completeMajor(majorId: Long): ApotheosisEvent? {
         val major = questDao.getMajorById(majorId) ?: return null
@@ -273,28 +425,48 @@ class PantheonRepository(
         questDao.updateMajor(major.copy(completed = true))
 
         val daemon = daemonDao.getById(major.daemonId) ?: return null
-        // Apotheosis: deposit the configured reward on the boon. If
-        // wishBoonId is null (boon was deleted), level-up only.
-        val grantedText = major.wishBoonId?.let { boonId ->
-            val boon = boonDao.getById(boonId) ?: return@let null
-            if (major.wishRewardCount > 0) {
-                boonDao.incrementCount(boonId, major.wishRewardCount)
-            }
-            boon.text
-        }
-        dialogueStateStore.ensureDaemonState(daemon.id)
+        val state = dialogueStateStore.ensureDaemonState(daemon.id)
         dialogueDao.incrementMajorsClosed(daemon.id)
+
+        val before = state.attentionPoints
+        val after = before + AttentionMath.MAJOR_CLOSURE_ATTENTION
+        val now = System.currentTimeMillis()
+        dialogueDao.addAttention(daemon.id, AttentionMath.MAJOR_CLOSURE_ATTENTION, now)
+        emitLevelUpIfCrossed(daemon, before, after, state.lastSeenLevel)
+
         val engineLine = pickInline(daemon.id, LineCategory.APOTHEOSIS)
         return ApotheosisEvent(
             daemonId = daemon.id,
             daemonName = daemon.name,
             voicePreset = VoicePreset.fromKey(daemon.voicePreset),
             completedMajorTitle = major.title,
-            newLevel = levelOf(daemon.id),
-            grantedBoonText = grantedText,
-            grantedBoonCount = if (grantedText != null) major.wishRewardCount else 0,
+            newLevel = AttentionMath.levelFor(after),
+            grantedBoonText = null,   // boons no longer come from major closure
+            grantedBoonCount = 0,
             engineLine = engineLine,
         )
+    }
+
+    private suspend fun emitLevelUpIfCrossed(
+        daemon: Daemon,
+        attentionBefore: Int,
+        attentionAfter: Int,
+        lastSeenLevel: Int,
+    ) {
+        val newLevel = AttentionMath.levelFor(attentionAfter)
+        if (newLevel > lastSeenLevel) {
+            // Ally polish: multi-level jump fires ONCE with final level;
+            // lastSeenLevel never rewinds on decay.
+            _levelUps.tryEmit(
+                LevelUpEvent(
+                    daemonId = daemon.id,
+                    daemonName = daemon.name,
+                    voicePreset = VoicePreset.fromKey(daemon.voicePreset),
+                    newLevel = newLevel,
+                    previousLevel = AttentionMath.levelFor(attentionBefore),
+                )
+            )
+        }
     }
 
     /**
@@ -404,9 +576,12 @@ class PantheonRepository(
         // v2 (Skeptic round 4): dialogue state travels with the daemons
         // so restore preserves voice continuity. "The play log IS the
         // relationship."
+        // v3 (v0.0.10): epic chapters added; DaemonState gains the
+        // attention columns automatically via @Serializable.
         val lineSeen = dialogueDao.allLineSeen()
         val cooldowns = dialogueDao.allCooldowns()
         val states = dialogueDao.allDaemonState()
+        val chapters = epicChapterDao.all()
         return json.encodeToString(
             PantheonBackup(
                 exportedAt = System.currentTimeMillis(),
@@ -415,6 +590,7 @@ class PantheonRepository(
                 lineSeen = lineSeen,
                 cooldownPlay = cooldowns,
                 daemonState = states,
+                epicChapters = chapters,
             )
         )
     }
@@ -461,6 +637,34 @@ class PantheonRepository(
         if (backup.cooldownPlay.isNotEmpty()) {
             dialogueDao.insertAllCooldowns(backup.cooldownPlay)
         }
+        // v3: epic chapters.
+        if (backup.epicChapters.isNotEmpty()) {
+            epicChapterDao.insertAll(backup.epicChapters)
+        }
+
+        // Architect (round 1 v0.0.10): on v1/v2 import, the loaded
+        // DaemonState (if any) lacks the v0.0.10 attention columns and
+        // gets defaults — meaning restored daemons land at level 0
+        // unless we re-run the migration backfill. Ensure a row exists
+        // for every daemon, then backfill attention from the imported
+        // majors using the same helper the migration uses.
+        if (backup.formatVersion < 3) {
+            backup.daemons.forEach { dwc ->
+                dialogueStateStore.ensureDaemonState(dwc.daemon.id)
+                val allMinorsForDaemon = mutableListOf<MinorQuest>()
+                val majors = dwc.majorQuests.map { mwm ->
+                    allMinorsForDaemon += mwm.minors
+                    mwm.major
+                }
+                val backfilled = com.grcarmenaty.lifegame.domain.attention.AttentionBackfill.compute(majors)
+                if (backfilled > 0) {
+                    dialogueDao.addAttention(dwc.daemon.id, backfilled, System.currentTimeMillis())
+                    val newLevel = AttentionMath.levelFor(backfilled)
+                    if (newLevel > 0) dialogueDao.bumpLastSeenLevel(dwc.daemon.id, newLevel)
+                }
+            }
+        }
+
         return ImportResult.Success(daemonCount = backup.daemons.size)
     }
 
@@ -488,4 +692,13 @@ data class ApotheosisEvent(
     val grantedBoonCount: Int,
     /** Engine-selected apotheosis line, or null → caller falls back to voice preset. */
     val engineLine: String? = null,
+)
+
+/** Emitted when a daemon's computed level rises above [lastSeenLevel]. */
+data class LevelUpEvent(
+    val daemonId: Long,
+    val daemonName: String,
+    val voicePreset: VoicePreset,
+    val newLevel: Int,
+    val previousLevel: Int,
 )

@@ -9,11 +9,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
 import com.grcarmenaty.lifegame.data.dao.DialogueDao
+import com.grcarmenaty.lifegame.data.dao.EpicChapterDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.CooldownPlay
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.DaemonState
+import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.LineSeen
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
@@ -22,8 +24,9 @@ import com.grcarmenaty.lifegame.data.entities.MinorQuest
     entities = [
         Daemon::class, MajorQuest::class, MinorQuest::class, Boon::class,
         LineSeen::class, CooldownPlay::class, DaemonState::class,
+        EpicChapter::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -31,6 +34,7 @@ abstract class LifegameDatabase : RoomDatabase() {
     abstract fun questDao(): QuestDao
     abstract fun boonDao(): BoonDao
     abstract fun dialogueDao(): DialogueDao
+    abstract fun epicChapterDao(): EpicChapterDao
 
     companion object {
         @Volatile private var instance: LifegameDatabase? = null
@@ -42,7 +46,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                     LifegameDatabase::class.java,
                     "lifegame.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }
@@ -170,6 +174,118 @@ internal val MIGRATION_3_4 = object : Migration(3, 4) {
         )
         db.execSQL(
             "ALTER TABLE `daemon_state` ADD COLUMN `lastNudgeAt` INTEGER"
+        )
+    }
+}
+
+/**
+ * v4 → v5: attention economy + epic chapters.
+ *
+ * Adds 7 columns to `daemon_state` for the new attention model
+ * (attentionPoints, lastAttentionUpdateAt, attentionDecayPerDay,
+ * attentionDecayGraceDays, decayDisabled, minorsCompletedSinceAccrual,
+ * minorsPerBoonAccrual, lastSeenLevel). Adds a new `epic_chapter`
+ * table.
+ *
+ * Backfill (Architect's round-1 recipe):
+ * 1. INSERT OR IGNORE a `daemon_state` row for every daemon — pre-v3
+ *    daemons that never had a dialogue event have no row yet, and
+ *    without one the UPDATE below is a silent no-op.
+ * 2. Backfill `attentionPoints` from past data via the SQL equivalent
+ *    of [AttentionBackfill.compute]: closed-major bonus
+ *    (count × 25) + capped sum of progressCount (capped at
+ *    thresholdCount per major so DAILY-overflow doesn't over-credit).
+ * 3. Initialize `lastAttentionUpdateAt = now()` so the first decay
+ *    worker tick doesn't compute `daysSinceEpoch × decayPerDay`
+ *    against rows that have legitimately just been created.
+ * 4. Initialize `lastSeenLevel` from the backfilled attention — we
+ *    don't want to fire boon-level-up prompts for past growth the
+ *    user already lived through.
+ */
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 7 new columns on daemon_state — additive ALTER, safe under
+        // SQLite without recreate-table.
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `attentionPoints` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `lastAttentionUpdateAt` INTEGER")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `attentionDecayPerDay` INTEGER")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `attentionDecayGraceDays` INTEGER")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `decayDisabled` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `minorsCompletedSinceAccrual` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `minorsPerBoonAccrual` INTEGER")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `lastSeenLevel` INTEGER NOT NULL DEFAULT 0")
+
+        // New epic_chapter table.
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `epic_chapter` (
+              `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              `daemonId` INTEGER NOT NULL,
+              `position` INTEGER NOT NULL,
+              `text` TEXT NOT NULL,
+              `createdAt` INTEGER NOT NULL,
+              FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_epic_chapter_daemonId` ON `epic_chapter` (`daemonId`)")
+
+        // Architect fix #1: pre-v3 daemons that never had a dialogue
+        // event have no daemon_state row yet. INSERT OR IGNORE
+        // ensures every daemon has a row before backfill UPDATE.
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO `daemon_state` (
+              `daemonId`,
+              `conversationsHad`, `majorsClosedTotal`, `wishesSpentTotal`,
+              `screenOpenCount`, `notificationsEnabled`,
+              `attentionPoints`, `decayDisabled`,
+              `minorsCompletedSinceAccrual`, `lastSeenLevel`
+            )
+            SELECT
+              d.`id`,
+              0, 0, 0,
+              0, 1,
+              0, 0,
+              0, 0
+            FROM `daemons` d
+            """.trimIndent()
+        )
+
+        // Architect fix #2 + #3 + intentional double-count:
+        // backfill attentionPoints from past major + minor work, cap
+        // each major's contribution at thresholdCount to prevent
+        // DAILY-overflow runaway. Init lastAttentionUpdateAt = now()
+        // so first decay tick isn't catastrophic.
+        // SQL equivalent of AttentionBackfill.compute.
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            """
+            UPDATE `daemon_state` SET
+              `attentionPoints` = COALESCE((
+                SELECT
+                  SUM(CASE WHEN mq.`completed` = 1 THEN 25 ELSE 0 END)
+                  + SUM(MIN(mq.`progressCount`, mq.`thresholdCount`))
+                FROM `major_quests` mq
+                WHERE mq.`daemonId` = `daemon_state`.`daemonId`
+              ), 0),
+              `lastAttentionUpdateAt` = $now
+            """.trimIndent()
+        )
+
+        // Architect: do NOT fire boon-level-up prompts for past growth.
+        // Set lastSeenLevel from the backfilled attention so the user
+        // doesn't get 4 prompts on first launch.
+        db.execSQL(
+            """
+            UPDATE `daemon_state` SET `lastSeenLevel` = CASE
+              WHEN `attentionPoints` < 10  THEN 0
+              WHEN `attentionPoints` < 35  THEN 1
+              WHEN `attentionPoints` < 85  THEN 2
+              WHEN `attentionPoints` < 160 THEN 3
+              ELSE 4
+            END
+            """.trimIndent()
         )
     }
 }

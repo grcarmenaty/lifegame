@@ -204,6 +204,15 @@ fun SummoningScreen(
                     question = "What favor will it grant you for the work?",
                     helper = "This is the boon — what you receive each time you spend a wish.",
                 ) {
+                    // Per-archetype "stay small" advice in the daemon's
+                    // own voice, not product tone. Council outcome:
+                    // Ally polish + user decision (5).
+                    Text(
+                        text = "“${voice.staySmallBoonAdvice}”",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
                     OutlinedTextField(
                         value = boon,
                         onValueChange = { boon = it },

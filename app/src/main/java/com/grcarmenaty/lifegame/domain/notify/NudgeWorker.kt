@@ -46,6 +46,9 @@ class NudgeWorker(
         if (NotificationPrefs.isQuietHour(hour, qStart, qEnd)) return Result.success()
 
         val repo = app.repository
+        // Architect's "decay-before-nudge" rule: nudge text references
+        // current attention, so settle decay first.
+        runCatching { repo.runDecay() }
         val daemons = repo.allDaemonsForNudge()
         if (daemons.isEmpty()) return Result.success()
 

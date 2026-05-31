@@ -6,15 +6,18 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 /**
- * Per-daemon dialogue/relationship state. Architect round 3 split this
- * off `Daemon` because `Daemon` is `@Serializable` and exported in
- * `PantheonBackup` — dialogue state was getting churned into the export
- * format. v5 (Skeptic): backup voice continuity demands this state
- * survive restore — so the v2 backup format now does include it, just
- * via a parallel `DaemonStateBackup` shape, not by reshaping `Daemon`.
+ * Per-daemon dialogue / relationship state. v0.0.10 absorbs the
+ * attention economy: `attentionPoints` is the central currency,
+ * driving level (derived) and decaying when neglected. Decay rate
+ * and grace period are nullable overrides — null falls back to the
+ * archetype default on `VoicePreset`. Same for
+ * `minorsPerBoonAccrual`.
  *
- * `screenOpenCount` and `lastScreenOpenAt` are the v0.0.7 cutdown
- * trigger's instrumentation (Believer's round-5 hill).
+ * `lastSeenLevel` is the fire-once gate for the boon-level-up
+ * prompt: when the computed level exceeds it, the UI surfaces the
+ * "your relationship has grown" affordance, then bumps it.
+ * Per Ally round 1 polish: `lastSeenLevel` only grows; decay never
+ * rewinds it, so a level-down + level-back-up doesn't re-prompt.
  */
 @Serializable
 @Entity(
@@ -37,8 +40,25 @@ data class DaemonState(
     val wishesSpentTotal: Int = 0,
     val screenOpenCount: Int = 0,
     val lastScreenOpenAt: Long? = null,
-    /** Per-daemon notification toggle — added v0.0.7. */
+    /** Per-daemon notification toggle — added v0.0.7. Also gates decay. */
     val notificationsEnabled: Boolean = true,
-    /** Last time a nudge was actually shown; used by the worker to rate-limit. */
     val lastNudgeAt: Long? = null,
+    // v0.0.10 attention economy:
+    val attentionPoints: Int = 0,
+    val lastAttentionUpdateAt: Long? = null,
+    /** Override; null = use [VoicePreset.decayPerDay]. */
+    val attentionDecayPerDay: Int? = null,
+    /** Override; null = use [VoicePreset.decayGraceDays]. */
+    val attentionDecayGraceDays: Int? = null,
+    /** User-driven kill switch for decay on this specific daemon. */
+    val decayDisabled: Boolean = false,
+    val minorsCompletedSinceAccrual: Int = 0,
+    /** Override; null = use [VoicePreset.minorsPerBoonAccrual]. */
+    val minorsPerBoonAccrual: Int? = null,
+    /**
+     * Greatest level we've shown the boon-level-up prompt for.
+     * `currentLevel > lastSeenLevel` ⇒ pending prompt. Never rewinds
+     * on decay (Ally polish, round 1).
+     */
+    val lastSeenLevel: Int = 0,
 )

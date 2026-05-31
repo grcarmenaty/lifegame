@@ -95,6 +95,18 @@ fun DailyScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     item { Spacer(Modifier.height(4.dp)) }
+                    if (state.pendingLevelUps.isNotEmpty()) {
+                        item {
+                            LevelUpBanner(
+                                pending = state.pendingLevelUps,
+                                onOpen = { id ->
+                                    viewModel.acknowledgeLevelUp(id)
+                                    onOpenDetail(id)
+                                },
+                                onAcknowledge = viewModel::acknowledgeLevelUp,
+                            )
+                        }
+                    }
                     items(state.daemons, key = { it.daemon.id }) { block ->
                         DaemonBlock(
                             block = block,
@@ -187,6 +199,57 @@ fun DailyScreen(
 }
 
 @Composable
+private fun LevelUpBanner(
+    pending: List<PendingLevelUp>,
+    onOpen: (Long) -> Unit,
+    onAcknowledge: (Long) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = if (pending.size == 1)
+                    "${pending.first().daemonName} has grown."
+                else
+                    "${pending.size} relationships have grown.",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Open the daemon to add a new boon or grow one already there. " +
+                    "Larger relationships earn larger favors.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Spacer(Modifier.height(8.dp))
+            pending.forEach { p ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "${p.daemonName} — level ${p.newLevel}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onOpen(p.daemonId) }) { Text("Open") }
+                    TextButton(onClick = { onAcknowledge(p.daemonId) }) { Text("Dismiss") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BoonPickerRow(boon: Boon, onSpend: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -260,18 +323,40 @@ private fun DaemonBlock(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { block.levelProgress },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            block.leadingMajorTitle?.let { title ->
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "toward next: $title",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LinearProgressIndicator(
+                    progress = { block.levelProgress },
+                    modifier = Modifier.weight(1f),
                 )
+                if (block.atMaxLevel) {
+                    // Ally polish: shimmer pip at level 4 makes the
+                    // decay buffer visible — continued work above the
+                    // cap reads as relationship investment rather than
+                    // hidden hoarding.
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .height(10.dp)
+                            .width(10.dp)
+                            .padding(0.dp),
+                    ) {
+                        Text(
+                            text = "✦",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                }
             }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (block.atMaxLevel)
+                    "level ${block.level} · ${block.attentionPoints} attention"
+                else
+                    "${block.attentionPoints} attention",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(10.dp))
             Text(
                 text = "“${block.greeting}”",

@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.data.entities.Boon
+import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.PantheonRepository
@@ -89,6 +91,7 @@ fun DaemonDetailScreen(
     var pendingDeleteBoonId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showAddMajor by rememberSaveable { mutableStateOf(false) }
     var addingMinorForMajor by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingChapterForMajor by rememberSaveable { mutableStateOf<String?>(null) }
 
     val voice = VoicePreset.fromKey(voiceKey)
     val dirty = name != daemon.name ||
@@ -157,6 +160,9 @@ fun DaemonDetailScreen(
             ) { Text(if (dirty) "Save changes" else "Saved") }
 
             HorizontalDivider()
+            TuningSection(state = state, viewModel = viewModel)
+
+            HorizontalDivider()
             SectionHeader(
                 title = "Boons",
                 actionLabel = "+ Boon",
@@ -203,6 +209,9 @@ fun DaemonDetailScreen(
                     )
                 }
             }
+
+            HorizontalDivider()
+            ScriptureSection(chapters = state.epicChapters)
 
             HorizontalDivider()
             OutlinedButton(
@@ -318,6 +327,12 @@ fun DaemonDetailScreen(
         AlertDialog(
             onDismissRequest = viewModel::dismissApotheosis,
             confirmButton = {
+                TextButton(onClick = {
+                    viewModel.dismissApotheosis()
+                    pendingChapterForMajor = event.completedMajorTitle
+                }) { Text("Write a chapter") }
+            },
+            dismissButton = {
                 TextButton(onClick = viewModel::dismissApotheosis) { Text("Continue") }
             },
             title = {
@@ -339,19 +354,25 @@ fun DaemonDetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    val granted = event.grantedBoonText
-                    if (granted != null && event.grantedBoonCount > 0) {
-                        Text(
-                            text = if (event.grantedBoonCount == 1)
-                                "As promised — “$granted.”"
-                            else
-                                "As promised — “$granted.” ×${event.grantedBoonCount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = "Write a chapter to keep this in the daemon's scripture, " +
+                            "or just continue.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
+        )
+    }
+
+    pendingChapterForMajor?.let { majorTitle ->
+        WriteChapterDialog(
+            majorTitle = majorTitle,
+            onDismiss = { pendingChapterForMajor = null },
+            onSave = { text ->
+                viewModel.addEpicChapter(text)
+                pendingChapterForMajor = null
+            },
         )
     }
 }
@@ -689,6 +710,200 @@ private fun AddMinorDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+// ---- v0.0.10 sections ----
+
+@Composable
+private fun TuningSection(
+    state: DetailState,
+    viewModel: DaemonDetailViewModel,
+) {
+    val resolved = state.resolvedConfig ?: return
+    val ds = state.daemonState ?: return
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Tuning", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Defaults come from the archetype. Override per-daemon below.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // Notifications switch (wires the existing setNotificationsEnabled
+        // method — UI was missing since v0.0.7).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Daemon nudges", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Allow this daemon to send notifications.",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = ds.notificationsEnabled,
+                onCheckedChange = viewModel::setNotificationsEnabled,
+            )
+        }
+
+        // Decay-disabled toggle (user kill switch from council outcome #1).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Pause level decay", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "When on, attention never drops from neglect.",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = ds.decayDisabled,
+                onCheckedChange = viewModel::setDecayDisabled,
+            )
+        }
+
+        // Decay rate override.
+        var decayText by rememberSaveable(ds.daemonId) {
+            mutableStateOf(ds.attentionDecayPerDay?.toString() ?: "")
+        }
+        var graceText by rememberSaveable(ds.daemonId) {
+            mutableStateOf(ds.attentionDecayGraceDays?.toString() ?: "")
+        }
+        var minorsBoonText by rememberSaveable(ds.daemonId) {
+            mutableStateOf(ds.minorsPerBoonAccrual?.toString() ?: "")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = decayText,
+                onValueChange = { v -> decayText = v.filter { it.isDigit() }.take(2) },
+                modifier = Modifier.weight(1f),
+                label = { Text("Decay / day") },
+                placeholder = { Text("default ${resolved.decayPerDay}") },
+            )
+            OutlinedTextField(
+                value = graceText,
+                onValueChange = { v -> graceText = v.filter { it.isDigit() }.take(2) },
+                modifier = Modifier.weight(1f),
+                label = { Text("Grace (days)") },
+                placeholder = { Text("default ${resolved.decayGraceDays}") },
+            )
+        }
+        OutlinedTextField(
+            value = minorsBoonText,
+            onValueChange = { v -> minorsBoonText = v.filter { it.isDigit() }.take(2) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Minors per boon (currently ${resolved.minorsPerBoonAccrual})") },
+            placeholder = { Text("default ${resolved.minorsPerBoonAccrual}") },
+        )
+        Button(
+            onClick = {
+                viewModel.setDecayOverride(decayText.toIntOrNull(), graceText.toIntOrNull())
+                viewModel.setMinorsPerBoonOverride(minorsBoonText.toIntOrNull())
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Save tuning") }
+    }
+}
+
+@Composable
+private fun ScriptureSection(chapters: List<EpicChapter>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Scripture", style = MaterialTheme.typography.headlineSmall)
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(
+                    if (expanded) "Hide"
+                    else if (chapters.isEmpty()) "Empty"
+                    else "Show ${chapters.size}"
+                )
+            }
+        }
+        if (expanded) {
+            if (chapters.isEmpty()) {
+                Text(
+                    "Nothing written yet. Close a major quest, and the daemon will offer " +
+                        "you a moment to inscribe what it meant.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                chapters.forEach { chapter ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Chapter ${chapter.position + 1}  ·  ${dateFormatter.format(Date(chapter.createdAt))}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = chapter.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WriteChapterDialog(
+    majorTitle: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    // Ally polish: pre-fill scaffolding so this is "edit" not "blank page".
+    val today = remember(majorTitle) { dateFormatter.format(Date()) }
+    var text by rememberSaveable(majorTitle) {
+        mutableStateOf("$today — closed “$majorTitle.” ")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add to scripture") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "A line or two about what this closure means in the daemon's story.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(text) },
+                enabled = text.isNotBlank(),
+            ) { Text("Save chapter") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Skip") }
         }
     )
 }

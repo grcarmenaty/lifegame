@@ -10,6 +10,17 @@ package com.grcarmenaty.lifegame.domain
 enum class VoicePreset(
     val displayName: String,
     val sample: String,
+    /** Attention decay per day, after [decayGraceDays] of inactivity. */
+    val decayPerDay: Int,
+    val decayGraceDays: Int,
+    /** Minor completions per +1 boon accrual on this daemon's first boon. */
+    val minorsPerBoonAccrual: Int,
+    /**
+     * Voiced in summoning step 5 — daemon advises restraint when the
+     * user is authoring their first boon. Per-archetype so the advice
+     * arrives in the voice they just picked, not in product-tone.
+     */
+    val staySmallBoonAdvice: String,
     private val greetings: List<String>,
     private val completions: List<String>,
     private val apotheoses: List<String>,
@@ -17,6 +28,9 @@ enum class VoicePreset(
     ORACLE(
         displayName = "Oracle",
         sample = "I have seen the path. Walk it, and you will be known.",
+        decayPerDay = 2, decayGraceDays = 3, minorsPerBoonAccrual = 4,
+        staySmallBoonAdvice = "Begin with a small offering. Larger gifts " +
+            "come to those whose hands have learned to receive.",
         greetings = listOf(
             "The day unfolds. I have been waiting.",
             "Dawn finds you. The work is named below.",
@@ -36,6 +50,9 @@ enum class VoicePreset(
     DRILL_SERGEANT(
         displayName = "Drill Sergeant",
         sample = "On your feet. The list is short. Get it done.",
+        decayPerDay = 5, decayGraceDays = 1, minorsPerBoonAccrual = 7,
+        staySmallBoonAdvice = "Don't promise yourself a vacation. " +
+            "Promise yourself a coffee. Earn the vacation.",
         greetings = listOf(
             "Morning. Here's the list. No excuses.",
             "Eyes up. You know what today asks.",
@@ -55,6 +72,9 @@ enum class VoicePreset(
     GENTLE_MENTOR(
         displayName = "Gentle Mentor",
         sample = "Take your time. Small steps still count.",
+        decayPerDay = 2, decayGraceDays = 5, minorsPerBoonAccrual = 4,
+        staySmallBoonAdvice = "Begin with something kind and modest. " +
+            "We'll find bigger gifts together, in time.",
         greetings = listOf(
             "Good to see you. A few small things, when you're ready.",
             "Whenever you are. I'll be here.",
@@ -74,6 +94,9 @@ enum class VoicePreset(
     TRICKSTER(
         displayName = "Trickster",
         sample = "Oh? You came back. Bold of you.",
+        decayPerDay = 3, decayGraceDays = 2, minorsPerBoonAccrual = 5,
+        staySmallBoonAdvice = "Set the bar suspiciously low. Then I get " +
+            "to mock you when you can't even clear that.",
         greetings = listOf(
             "Look who showed up. Got a list, want to hear it?",
             "Bored already? Good. Try these.",
@@ -93,6 +116,9 @@ enum class VoicePreset(
     STOIC(
         displayName = "Stoic",
         sample = "What matters is the action, not the praise. Begin.",
+        decayPerDay = 1, decayGraceDays = 5, minorsPerBoonAccrual = 5,
+        staySmallBoonAdvice = "A small thing well-given is a true gift. " +
+            "An extravagant one only burdens the giver.",
         greetings = listOf(
             "The day arrives. Do what you can. Accept the rest.",
             "A morning, no different from any other. The work waits.",
@@ -112,6 +138,9 @@ enum class VoicePreset(
     CHEERLEADER(
         displayName = "Cheerleader",
         sample = "Look at you! Honestly — incredible. Let's GO.",
+        decayPerDay = 3, decayGraceDays = 2, minorsPerBoonAccrual = 5,
+        staySmallBoonAdvice = "OK start TINY!! Like a smoothie tiny!! " +
+            "We unlock the BIG gifts together!!",
         greetings = listOf(
             "Hi friend!! Today is going to be GREAT. Look at this list!",
             "You're back! I was thinking about you. Tiny things, huge wins!",
@@ -131,6 +160,9 @@ enum class VoicePreset(
     POET(
         displayName = "Poet",
         sample = "Begin gently. The day is a draft you may revise.",
+        decayPerDay = 2, decayGraceDays = 3, minorsPerBoonAccrual = 4,
+        staySmallBoonAdvice = "The first line is brief. The poem grows " +
+            "as we do. Let the gift be small.",
         greetings = listOf(
             "Morning unfolds, a page that asks to be marked.",
             "Light catches the work. Step into it.",
@@ -150,6 +182,9 @@ enum class VoicePreset(
     THERAPIST(
         displayName = "Therapist",
         sample = "Notice what you notice. Begin where you can.",
+        decayPerDay = 1, decayGraceDays = 7, minorsPerBoonAccrual = 4,
+        staySmallBoonAdvice = "Start with a kindness you can actually " +
+            "give yourself. We'll make room for more, slowly.",
         greetings = listOf(
             "Good to see you. What's coming up for you today?",
             "Take a breath. Here's what's on the table, when you're ready.",
@@ -169,6 +204,10 @@ enum class VoicePreset(
     COACH(
         displayName = "Coach",
         sample = "Game plan. Three reps. Let's work.",
+        decayPerDay = 4, decayGraceDays = 1, minorsPerBoonAccrual = 7,
+        staySmallBoonAdvice = "Don't reward yourself like a champion " +
+            "before you've earned it. Small wins, small rewards. We " +
+            "level up together.",
         greetings = listOf(
             "Morning. Here's the slate. Pick your target.",
             "Time on the clock. We're moving.",
@@ -188,6 +227,9 @@ enum class VoicePreset(
     HERMIT(
         displayName = "Hermit",
         sample = "I have been here. I have noticed. The work is small and good.",
+        decayPerDay = 0, decayGraceDays = 14, minorsPerBoonAccrual = 3,
+        staySmallBoonAdvice = "A small thing. The small things are the " +
+            "real ones.",
         greetings = listOf(
             "I am here. The work is here. Begin when you wish.",
             "Few things asked today. Each one quiet.",

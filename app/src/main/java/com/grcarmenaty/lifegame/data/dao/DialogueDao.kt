@@ -50,6 +50,12 @@ interface DialogueDao {
     @Query("SELECT * FROM daemon_state WHERE daemonId = :daemonId")
     suspend fun daemonState(daemonId: Long): DaemonState?
 
+    @Query("SELECT * FROM daemon_state WHERE daemonId = :daemonId")
+    fun observeDaemonState(daemonId: Long): kotlinx.coroutines.flow.Flow<DaemonState?>
+
+    @Query("SELECT * FROM daemon_state")
+    fun observeAllDaemonState(): kotlinx.coroutines.flow.Flow<List<DaemonState>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDaemonState(row: DaemonState)
 
@@ -67,6 +73,39 @@ interface DialogueDao {
 
     @Query("UPDATE daemon_state SET lastNudgeAt = :at WHERE daemonId = :daemonId")
     suspend fun recordNudge(daemonId: Long, at: Long)
+
+    // ---- v0.0.10 attention economy ----
+
+    @Query("""
+        UPDATE daemon_state
+        SET attentionPoints = MAX(0, attentionPoints + :delta),
+            lastAttentionUpdateAt = :at
+        WHERE daemonId = :daemonId
+    """)
+    suspend fun addAttention(daemonId: Long, delta: Int, at: Long)
+
+    @Query("""
+        UPDATE daemon_state
+        SET attentionPoints = MAX(0, attentionPoints - :amount),
+            lastAttentionUpdateAt = :at
+        WHERE daemonId = :daemonId
+    """)
+    suspend fun applyDecay(daemonId: Long, amount: Int, at: Long)
+
+    @Query("UPDATE daemon_state SET lastSeenLevel = :level WHERE daemonId = :daemonId AND lastSeenLevel < :level")
+    suspend fun bumpLastSeenLevel(daemonId: Long, level: Int)
+
+    @Query("UPDATE daemon_state SET minorsCompletedSinceAccrual = :value WHERE daemonId = :daemonId")
+    suspend fun setMinorsCompletedSinceAccrual(daemonId: Long, value: Int)
+
+    @Query("UPDATE daemon_state SET attentionDecayPerDay = :decay, attentionDecayGraceDays = :grace WHERE daemonId = :daemonId")
+    suspend fun setDecayOverride(daemonId: Long, decay: Int?, grace: Int?)
+
+    @Query("UPDATE daemon_state SET decayDisabled = :disabled WHERE daemonId = :daemonId")
+    suspend fun setDecayDisabled(daemonId: Long, disabled: Boolean)
+
+    @Query("UPDATE daemon_state SET minorsPerBoonAccrual = :value WHERE daemonId = :daemonId")
+    suspend fun setMinorsPerBoonOverride(daemonId: Long, value: Int?)
 
     @Query("DELETE FROM daemon_state")
     suspend fun deleteAllDaemonState()

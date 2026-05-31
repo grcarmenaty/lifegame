@@ -76,10 +76,39 @@ Scaffold is in place. The app builds, runs, and ships:
   `LineCategory`, so each archetype's voice carries through into its
   notifications — Drill Sergeant nags, Hermit barely speaks. Settings
   has a master toggle + quiet hours (DataStore prefs). Per-daemon
-  `notificationsEnabled` lives on `daemon_state`. Android 13+
-  POST_NOTIFICATIONS permission requested in-app when the master
-  toggle is first turned on. Tapping a notification deep-links to the
-  daemon's detail screen via `MainActivity.intent` extras.
+  `notificationsEnabled` lives on `daemon_state` (UI toggle added in
+  v0.0.10's Tuning section). Android 13+ POST_NOTIFICATIONS permission
+  requested in-app when the master toggle is first turned on. Tapping
+  a notification deep-links to the daemon's detail screen via
+  `MainActivity.intent` extras.
+- **Attention economy** (v0.0.10) in `domain/attention/`: the central
+  currency replacing major-count-as-level. Earned by minor
+  completions (`+= minor.weight`) and major closures (`+= 25`).
+  Tiered levels (10/25/50/75 cumulative; max level **4**; level **0**
+  displayable when decayed below threshold). Above 160, attention
+  accumulates as a decay buffer with a shimmer pip on the Daily card.
+  **Decay**: periodic `AttentionDecayWorker` (~12h) + inline first
+  step of `NudgeWorker`. Per-archetype defaults on `VoicePreset`
+  (Hermit 0/day, Drill Sergeant 5/day after 1 grace day). Pauses
+  when notifications are off for the daemon AND globally;
+  user-toggleable per-daemon kill switch (`decayDisabled` column).
+  **Boons from minors**: every N minor completions auto-credits the
+  daemon's first boon; N per-archetype default, overridable per-daemon.
+  Major closure **no longer** deposits boons.
+- **Boon level-up prompt** (v0.0.10): when a daemon's computed level
+  exceeds its `lastSeenLevel`, the Daily screen shows a persistent
+  banner ("X relationships have grown"). User opens the daemon to
+  add/grow a boon, or dismisses. Counter `lastSeenLevel` never
+  rewinds on decay so a level-down + level-back-up doesn't re-prompt.
+  Multi-level jumps fire once with the final level.
+- **Epics / Scripture** (v0.0.10) in `data/entities/EpicChapter` +
+  detail screen's Scripture section. Optional — daemon can run
+  without any. Apotheosis dialog offers "Write a chapter" (skippable);
+  text pre-fills with date + closed major title as scaffolding so
+  it's edit-mode, not blank page.
+- **Summoning step 5** voice variant: per-archetype "stay small with
+  boons" advice (`VoicePreset.staySmallBoonAdvice`) voiced by the
+  daemon being authored, not in product tone.
 
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):

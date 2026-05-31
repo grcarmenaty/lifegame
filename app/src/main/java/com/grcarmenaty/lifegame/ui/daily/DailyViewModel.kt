@@ -5,10 +5,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
+import com.grcarmenaty.lifegame.data.entities.DaemonState
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.ApotheosisEvent
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
+import com.grcarmenaty.lifegame.domain.attention.AttentionMath
 import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,13 +26,18 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class DailyState(val daemons: List<DaemonDailyBlock> = emptyList())
+data class DailyState(
+    val daemons: List<DaemonDailyBlock> = emptyList(),
+    val pendingLevelUps: List<PendingLevelUp> = emptyList(),
+)
 
 data class DaemonDailyBlock(
     val daemon: Daemon,
     val level: Int,
+    val attentionPoints: Int,
     val levelProgress: Float,
-    val leadingMajorTitle: String?,
+    /** True at level 4 — UI shows a shimmer pip on the bar (Ally polish). */
+    val atMaxLevel: Boolean,
     val greeting: String,
     val openMinors: List<MinorEntry>,
     val availableBoons: List<Boon>,
@@ -41,6 +48,13 @@ data class DaemonDailyBlock(
 data class MinorEntry(
     val minor: MinorQuest,
     val parentMajorTitle: String,
+)
+
+/** Daemons whose computed level has risen above their `lastSeenLevel`. */
+data class PendingLevelUp(
+    val daemonId: Long,
+    val daemonName: String,
+    val newLevel: Int,
 )
 
 /** Open picker state — non-null means the spend dialog is showing. */
@@ -64,70 +78,61 @@ class DailyViewModel(
     val spendPicker: StateFlow<SpendPickerState?> = _spendPicker
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<DailyState> = repository.observeDaemons()
-        .flatMapLatest { daemons ->
-            if (daemons.isEmpty()) {
-                flowOf(DailyState(emptyList()))
-            } else {
-                val blockFlows = daemons.map { buildDaemonBlockFlow(it) }
-                combine(blockFlows) { blocks -> DailyState(blocks.toList()) }
+    val state: StateFlow<DailyState> = run {
+        val daemonsBlocksFlow: Flow<List<DaemonDailyBlock>> = repository.observeDaemons()
+            .flatMapLatest { daemons ->
+                if (daemons.isEmpty()) flowOf(emptyList())
+                else combine(daemons.map { buildDaemonBlockFlow(it) }) { it.toList() }
             }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyState())
+        combine(daemonsBlocksFlow, repository.observeAllDaemonState()) { blocks, allStates ->
+            val byId = blocks.associateBy { it.daemon.id }
+            val pending = allStates.mapNotNull { s ->
+                val level = AttentionMath.levelFor(s.attentionPoints)
+                if (level > s.lastSeenLevel) {
+                    val name = byId[s.daemonId]?.daemon?.name ?: return@mapNotNull null
+                    PendingLevelUp(s.daemonId, name, level)
+                } else null
+            }
+            DailyState(daemons = blocks, pendingLevelUps = pending)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyState())
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun buildDaemonBlockFlow(daemon: Daemon): Flow<DaemonDailyBlock> {
         val voice = VoicePreset.fromKey(daemon.voicePreset)
         val greetingSeed = daemon.id + todaySeed()
 
-        val coreFlow: Flow<CoreBlock> = repository.observeMajors(daemon.id).flatMapLatest { majors ->
-            val openMajors = majors.filter { !it.completed }
-            val leading = openMajors.maxByOrNull {
-                it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1)
-            }
-            val levelProgress = leading?.let {
-                (it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1))
-                    .coerceIn(0f, 1f)
-            } ?: 0f
-            val leadingTitle = leading?.title
-
-            if (openMajors.isEmpty()) {
-                flow {
-                    emit(
-                        CoreBlock(
-                            level = repository.levelOf(daemon.id),
-                            levelProgress = levelProgress,
-                            leadingTitle = leadingTitle,
-                            openMinors = emptyList(),
-                        )
-                    )
-                }
-            } else {
-                val minorFlows: List<Flow<List<MinorEntry>>> = openMajors.map { major ->
-                    repository.observeMinors(major.id).map { minors ->
-                        minors.filter { isOpenToday(it) }
-                            .map { MinorEntry(it, major.title) }
+        val openMinorsFlow: Flow<List<MinorEntry>> =
+            repository.observeMajors(daemon.id).flatMapLatest { majors ->
+                val openMajors = majors.filter { !it.completed }
+                if (openMajors.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    val perMajor: List<Flow<List<MinorEntry>>> = openMajors.map { major ->
+                        repository.observeMinors(major.id).map { minors ->
+                            minors.filter { isOpenToday(it) }
+                                .map { MinorEntry(it, major.title) }
+                        }
                     }
-                }
-                combine(minorFlows) { lists ->
-                    CoreBlock(
-                        level = repository.levelOf(daemon.id),
-                        levelProgress = levelProgress,
-                        leadingTitle = leadingTitle,
-                        openMinors = lists.flatMap { it },
-                    )
+                    combine(perMajor) { lists -> lists.flatMap { it } }
                 }
             }
-        }
 
-        return combine(coreFlow, repository.observeBoons(daemon.id)) { core, boons ->
+        return combine(
+            openMinorsFlow,
+            repository.observeBoons(daemon.id),
+            repository.observeDaemonState(daemon.id),
+        ) { openMinors, boons, ds ->
+            val attention = ds?.attentionPoints ?: 0
+            val level = AttentionMath.levelFor(attention)
             DaemonDailyBlock(
                 daemon = daemon,
-                level = core.level,
-                levelProgress = core.levelProgress,
-                leadingMajorTitle = core.leadingTitle,
+                level = level,
+                attentionPoints = attention,
+                levelProgress = AttentionMath.levelProgress(attention),
+                atMaxLevel = level >= AttentionMath.MAX_LEVEL,
                 greeting = voice.greeting(greetingSeed),
-                openMinors = core.openMinors,
+                openMinors = openMinors,
                 availableBoons = boons.filter { it.count > 0 },
             )
         }
@@ -139,9 +144,15 @@ class DailyViewModel(
             // No apotheosis here — closing a major is user-driven
             // (see DaemonDetailViewModel.completeMajor). Minor
             // completions track progress but never auto-close.
+            // Boon-from-minors accrual happens inside repo.
+            // Level-up emission also inside repo (via SharedFlow).
         }
     }
     fun dismissApotheosis() { _apotheosis.value = null }
+
+    fun acknowledgeLevelUp(daemonId: Long) {
+        viewModelScope.launch { repository.acknowledgeLevelUp(daemonId) }
+    }
 
     fun openSpendPicker(daemonId: Long) {
         val daemon = state.value.daemons.firstOrNull { it.daemon.id == daemonId } ?: return
@@ -184,13 +195,6 @@ class DailyViewModel(
         val c = Calendar.getInstance()
         return (c.get(Calendar.YEAR) * 1000L) + c.get(Calendar.DAY_OF_YEAR)
     }
-
-    private data class CoreBlock(
-        val level: Int,
-        val levelProgress: Float,
-        val leadingTitle: String?,
-        val openMinors: List<MinorEntry>,
-    )
 
     companion object {
         fun factory(repository: PantheonRepository) = object : ViewModelProvider.Factory {

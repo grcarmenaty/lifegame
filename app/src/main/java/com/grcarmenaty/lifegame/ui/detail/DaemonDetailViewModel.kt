@@ -5,11 +5,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
+import com.grcarmenaty.lifegame.data.entities.DaemonState
+import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.ApotheosisEvent
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
+import com.grcarmenaty.lifegame.domain.attention.AttentionConfig
+import com.grcarmenaty.lifegame.domain.attention.AttentionMath
+import com.grcarmenaty.lifegame.domain.attention.ResolvedAttentionConfig
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,14 +30,14 @@ import kotlinx.coroutines.launch
 data class DetailState(
     val daemon: Daemon? = null,
     val level: Int = 1,
+    val attentionPoints: Int = 0,
     val levelProgress: Float = 0f,
-    val leadingMajor: LeadingMajor? = null,
+    val resolvedConfig: ResolvedAttentionConfig? = null,
+    val daemonState: DaemonState? = null,
     val majors: List<MajorQuest> = emptyList(),
     val boons: List<Boon> = emptyList(),
-    // Hoisted out of MajorCard so the screen never opens per-item Flow
-    // subscriptions during scroll. Empty list for a major with no
-    // minors. Missing key = "loading" (treat as empty).
     val minorsByMajor: Map<Long, List<MinorQuest>> = emptyMap(),
+    val epicChapters: List<EpicChapter> = emptyList(),
 ) {
     fun boonTextFor(id: Long?): String? =
         id?.let { boons.firstOrNull { b -> b.id == it }?.text }
@@ -40,8 +45,6 @@ data class DetailState(
     fun minorsFor(majorId: Long): List<MinorQuest> =
         minorsByMajor[majorId] ?: emptyList()
 }
-
-data class LeadingMajor(val title: String, val progress: Int, val threshold: Int)
 
 data class DeleteMajorPreview(
     val majorId: Long,
@@ -60,10 +63,8 @@ class DaemonDetailViewModel(
         val daemonFlow = repository.observeDaemon(daemonId)
         val majorsFlow = repository.observeMajors(daemonId)
         val boonsFlow = repository.observeBoons(daemonId)
-        // Build a Map<majorId, minors> by flatMapping over the current
-        // majors list — every major's minors flow is consumed exactly
-        // once, at the VM level, so the UI never opens a per-item
-        // subscription during scroll.
+        val daemonStateFlow = repository.observeDaemonState(daemonId)
+        val epicChaptersFlow = repository.observeEpicChapters(daemonId)
         val minorsMapFlow: Flow<Map<Long, List<MinorQuest>>> =
             majorsFlow.flatMapLatest { majors ->
                 if (majors.isEmpty()) flowOf(emptyMap())
@@ -76,28 +77,40 @@ class DaemonDetailViewModel(
                 }
             }
 
-        combine(daemonFlow, majorsFlow, boonsFlow, minorsMapFlow) { daemon, majors, boons, minorsMap ->
-            val completedCount = majors.count { it.completed }
-            val open = majors.filter { !it.completed }
-            val leading = open.maxByOrNull {
-                it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1)
-            }
+        // 6 input flows — combine in two phases to stay within
+        // kotlinx.coroutines's 5-arg combine overload.
+        combine(daemonFlow, majorsFlow, boonsFlow, minorsMapFlow, daemonStateFlow) {
+                daemon, majors, boons, minorsMap, ds ->
+            Phase1(daemon, majors, boons, minorsMap, ds)
+        }.combine(epicChaptersFlow) { phase1, chapters ->
+            val daemon = phase1.daemon
+            val ds = phase1.ds
+            val resolved = if (daemon != null && ds != null) {
+                AttentionConfig.resolve(ds, VoicePreset.fromKey(daemon.voicePreset))
+            } else null
+            val attention = ds?.attentionPoints ?: 0
             DetailState(
                 daemon = daemon,
-                level = 1 + completedCount,
-                levelProgress = leading?.let {
-                    (it.progressCount.toFloat() / it.thresholdCount.coerceAtLeast(1))
-                        .coerceIn(0f, 1f)
-                } ?: 0f,
-                leadingMajor = leading?.let {
-                    LeadingMajor(it.title, it.progressCount, it.thresholdCount)
-                },
-                majors = majors,
-                boons = boons,
-                minorsByMajor = minorsMap,
+                level = AttentionMath.levelFor(attention),
+                attentionPoints = attention,
+                levelProgress = AttentionMath.levelProgress(attention),
+                resolvedConfig = resolved,
+                daemonState = ds,
+                majors = phase1.majors,
+                boons = phase1.boons,
+                minorsByMajor = phase1.minorsMap,
+                epicChapters = chapters,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailState())
     }
+
+    private data class Phase1(
+        val daemon: Daemon?,
+        val majors: List<MajorQuest>,
+        val boons: List<Boon>,
+        val minorsMap: Map<Long, List<MinorQuest>>,
+        val ds: DaemonState?,
+    )
 
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved
@@ -149,10 +162,6 @@ class DaemonDetailViewModel(
         viewModelScope.launch { repository.deleteMinor(minorId) }
     }
 
-    /**
-     * User-driven close of a major quest. The only path that fires
-     * apotheosis — minor completions only track progress now.
-     */
     fun completeMajor(majorId: Long) {
         viewModelScope.launch {
             val event = repository.completeMajor(majorId)
@@ -162,16 +171,10 @@ class DaemonDetailViewModel(
 
     fun dismissApotheosis() { _apotheosis.value = null }
 
-    /** Reopen a previously-closed major. No wish refund. */
     fun reopenMajor(majorId: Long) {
         viewModelScope.launch { repository.reopenMajor(majorId) }
     }
 
-    /**
-     * Major delete is gated by a preview dialog so the user sees what
-     * they're about to destroy. UI calls [requestDeleteMajor] first,
-     * gets a populated [deletePreview], then either confirms or cancels.
-     */
     fun requestDeleteMajor(majorId: Long, majorTitle: String) {
         viewModelScope.launch {
             val (done, total) = repository.progressLossPreview(majorId)
@@ -190,6 +193,30 @@ class DaemonDetailViewModel(
         val preview = _deletePreview.value ?: return
         _deletePreview.value = null
         viewModelScope.launch { repository.deleteMajor(preview.majorId) }
+    }
+
+    // ---- v0.0.10 attention/decay/boon-accrual overrides ----
+
+    fun setDecayOverride(perDay: Int?, graceDays: Int?) {
+        viewModelScope.launch { repository.setDecayOverride(daemonId, perDay, graceDays) }
+    }
+
+    fun setDecayDisabled(disabled: Boolean) {
+        viewModelScope.launch { repository.setDecayDisabled(daemonId, disabled) }
+    }
+
+    fun setMinorsPerBoonOverride(value: Int?) {
+        viewModelScope.launch { repository.setMinorsPerBoonOverride(daemonId, value) }
+    }
+
+    // ---- Epic chapters ----
+
+    fun addEpicChapter(text: String) {
+        viewModelScope.launch { repository.addEpicChapter(daemonId, text) }
+    }
+
+    fun deleteEpicChapter(chapterId: Long) {
+        viewModelScope.launch { repository.deleteEpicChapter(chapterId) }
     }
 
     companion object {

@@ -3,10 +3,13 @@ package com.grcarmenaty.lifegame
 import android.app.Application
 import com.grcarmenaty.lifegame.data.LifegameDatabase
 import com.grcarmenaty.lifegame.domain.PantheonRepository
+import com.grcarmenaty.lifegame.domain.attention.AttentionDecay
+import com.grcarmenaty.lifegame.domain.attention.AttentionDecayScheduler
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueStateStore
 import com.grcarmenaty.lifegame.domain.dialogue.lines.DialogueCorpus
 import com.grcarmenaty.lifegame.domain.notify.NotificationChannels
+import com.grcarmenaty.lifegame.domain.notify.NotificationPrefs
 import com.grcarmenaty.lifegame.domain.notify.NudgeScheduler
 
 class LifegameApplication : Application() {
@@ -19,6 +22,12 @@ class LifegameApplication : Application() {
         DialogueStateStore(database.dialogueDao())
     }
 
+    private val notificationPrefs: NotificationPrefs by lazy { NotificationPrefs(this) }
+
+    private val attentionDecay: AttentionDecay by lazy {
+        AttentionDecay(database.daemonDao(), database.dialogueDao(), notificationPrefs)
+    }
+
     val repository: PantheonRepository by lazy {
         PantheonRepository(
             database.daemonDao(),
@@ -27,6 +36,8 @@ class LifegameApplication : Application() {
             database.dialogueDao(),
             dialogueEngine,
             dialogueStateStore,
+            database.epicChapterDao(),
+            attentionDecay,
         )
     }
 
@@ -34,5 +45,6 @@ class LifegameApplication : Application() {
         super.onCreate()
         NotificationChannels.ensureCreated(this)
         NudgeScheduler.schedule(this)
+        AttentionDecayScheduler.schedule(this)
     }
 }

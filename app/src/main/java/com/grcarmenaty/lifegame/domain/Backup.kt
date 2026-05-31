@@ -4,6 +4,7 @@ import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.CooldownPlay
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.DaemonState
+import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.LineSeen
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
@@ -34,9 +35,12 @@ data class PantheonBackup(
     val lineSeen: List<LineSeen> = emptyList(),
     val cooldownPlay: List<CooldownPlay> = emptyList(),
     val daemonState: List<DaemonState> = emptyList(),
+    // v3 additions — epic chapters (DaemonState gained columns
+    // automatically since it's @Serializable, defaulted on v2 import).
+    val epicChapters: List<EpicChapter> = emptyList(),
 ) {
     companion object {
-        const val CURRENT_FORMAT_VERSION = 2
+        const val CURRENT_FORMAT_VERSION = 3
         const val MIN_SUPPORTED_FORMAT_VERSION = 1
     }
 }
