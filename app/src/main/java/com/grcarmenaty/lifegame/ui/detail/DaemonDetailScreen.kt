@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -109,69 +109,62 @@ fun DaemonDetailScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        // Column + verticalScroll: the screen has at most ~25 items in
+        // real use, so Lazy isn't earning its keep — and a regular
+        // scrolling Column eliminates LazyColumn-specific bugs around
+        // item composition timing and focused-TextField + scroll
+        // interaction. Minors come from the VM state, not per-item
+        // Flow subscriptions opened inside MajorCard.
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { Spacer(Modifier.height(4.dp)) }
+            Spacer(Modifier.height(4.dp))
 
-            item {
-                LevelSection(
-                    level = state.level,
-                    progress = state.levelProgress,
-                    leading = state.leadingMajor,
-                )
-            }
+            LevelSection(
+                level = state.level,
+                progress = state.levelProgress,
+                leading = state.leadingMajor,
+            )
 
-            item { Text("Edit", style = MaterialTheme.typography.headlineSmall) }
-            item {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Name") },
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = archetype,
-                    onValueChange = { archetype = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Archetype") },
-                )
-            }
-            item {
-                VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
-            }
-            item {
-                Button(
-                    onClick = { viewModel.save(name, archetype, voice) },
-                    enabled = canSave,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (dirty) "Save changes" else "Saved") }
-            }
+            Text("Edit", style = MaterialTheme.typography.headlineSmall)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Name") },
+            )
+            OutlinedTextField(
+                value = archetype,
+                onValueChange = { archetype = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Archetype") },
+            )
+            VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
+            Button(
+                onClick = { viewModel.save(name, archetype, voice) },
+                enabled = canSave,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (dirty) "Save changes" else "Saved") }
 
-            item { HorizontalDivider() }
-            item {
-                SectionHeader(
-                    title = "Boons",
-                    actionLabel = "+ Boon",
-                    onAction = { showAddBoon = true },
-                )
-            }
+            HorizontalDivider()
+            SectionHeader(
+                title = "Boons",
+                actionLabel = "+ Boon",
+                onAction = { showAddBoon = true },
+            )
             if (state.boons.isEmpty()) {
-                item {
-                    Text(
-                        text = "No boons yet — the daemon has nothing to grant.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = "No boons yet — the daemon has nothing to grant.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
-                items(state.boons, key = { it.id }) { boon ->
+                state.boons.forEach { boon ->
                     BoonRow(
                         boon = boon,
                         onDelete = { pendingDeleteBoonId = boon.id },
@@ -179,28 +172,24 @@ fun DaemonDetailScreen(
                 }
             }
 
-            item { HorizontalDivider() }
-            item {
-                SectionHeader(
-                    title = "Quest history",
-                    actionLabel = "+ Major",
-                    onAction = { showAddMajor = true },
-                )
-            }
+            HorizontalDivider()
+            SectionHeader(
+                title = "Quest history",
+                actionLabel = "+ Major",
+                onAction = { showAddMajor = true },
+            )
             if (state.majors.isEmpty()) {
-                item {
-                    Text(
-                        text = "No quests yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = "No quests yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
-                items(state.majors, key = { it.id }) { major ->
+                state.majors.forEach { major ->
                     MajorCard(
                         major = major,
+                        minors = state.minorsFor(major.id),
                         grantsBoonText = state.boonTextFor(major.wishBoonId),
-                        repository = repository,
                         onAddMinor = { addingMinorForMajor = major.id },
                         onDeleteMajor = { viewModel.requestDeleteMajor(major.id, major.title) },
                         onDeleteMinor = { viewModel.deleteMinor(it) },
@@ -208,17 +197,15 @@ fun DaemonDetailScreen(
                 }
             }
 
-            item { HorizontalDivider() }
-            item {
-                OutlinedButton(
-                    onClick = { showVanishConfirm = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                ) { Text("Vanish daemon") }
-            }
-            item { Spacer(Modifier.height(24.dp)) }
+            HorizontalDivider()
+            OutlinedButton(
+                onClick = { showVanishConfirm = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+            ) { Text("Vanish daemon") }
+            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -405,16 +392,12 @@ private fun BoonRow(boon: Boon, onDelete: () -> Unit) {
 @Composable
 private fun MajorCard(
     major: MajorQuest,
+    minors: List<MinorQuest>,
     grantsBoonText: String?,
-    repository: PantheonRepository,
     onAddMinor: () -> Unit,
     onDeleteMajor: () -> Unit,
     onDeleteMinor: (Long) -> Unit,
 ) {
-    val minors by remember(major.id) {
-        repository.observeMinors(major.id)
-    }.collectAsState(initial = emptyList())
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(

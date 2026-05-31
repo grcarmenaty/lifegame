@@ -6,13 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
+import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -23,9 +28,16 @@ data class DetailState(
     val leadingMajor: LeadingMajor? = null,
     val majors: List<MajorQuest> = emptyList(),
     val boons: List<Boon> = emptyList(),
+    // Hoisted out of MajorCard so the screen never opens per-item Flow
+    // subscriptions during scroll. Empty list for a major with no
+    // minors. Missing key = "loading" (treat as empty).
+    val minorsByMajor: Map<Long, List<MinorQuest>> = emptyMap(),
 ) {
     fun boonTextFor(id: Long?): String? =
         id?.let { boons.firstOrNull { b -> b.id == it }?.text }
+
+    fun minorsFor(majorId: Long): List<MinorQuest> =
+        minorsByMajor[majorId] ?: emptyList()
 }
 
 data class LeadingMajor(val title: String, val progress: Int, val threshold: Int)
@@ -43,12 +55,27 @@ class DaemonDetailViewModel(
 ) : ViewModel() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<DetailState> =
-        combine(
-            repository.observeDaemon(daemonId),
-            repository.observeMajors(daemonId),
-            repository.observeBoons(daemonId),
-        ) { daemon, majors, boons ->
+    val state: StateFlow<DetailState> = run {
+        val daemonFlow = repository.observeDaemon(daemonId)
+        val majorsFlow = repository.observeMajors(daemonId)
+        val boonsFlow = repository.observeBoons(daemonId)
+        // Build a Map<majorId, minors> by flatMapping over the current
+        // majors list — every major's minors flow is consumed exactly
+        // once, at the VM level, so the UI never opens a per-item
+        // subscription during scroll.
+        val minorsMapFlow: Flow<Map<Long, List<MinorQuest>>> =
+            majorsFlow.flatMapLatest { majors ->
+                if (majors.isEmpty()) flowOf(emptyMap())
+                else {
+                    val perMajor: List<Flow<Pair<Long, List<MinorQuest>>>> =
+                        majors.map { m ->
+                            repository.observeMinors(m.id).map { m.id to it }
+                        }
+                    combine(perMajor) { pairs -> pairs.toMap() }
+                }
+            }
+
+        combine(daemonFlow, majorsFlow, boonsFlow, minorsMapFlow) { daemon, majors, boons, minorsMap ->
             val completedCount = majors.count { it.completed }
             val open = majors.filter { !it.completed }
             val leading = open.maxByOrNull {
@@ -66,8 +93,10 @@ class DaemonDetailViewModel(
                 },
                 majors = majors,
                 boons = boons,
+                minorsByMajor = minorsMap,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailState())
+    }
 
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved
