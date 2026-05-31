@@ -18,11 +18,26 @@ android {
         applicationId = "com.grcarmenaty.lifegame"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.0.7"
+        versionCode = 8
+        versionName = "0.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    signingConfigs {
+        // Stable keystore committed to the repo so every release APK is
+        // signed with the same key — Android can then install v0.0.N+1
+        // over v0.0.N in place without an uninstall. Debug-class
+        // credentials are public on purpose; this is for personal
+        // sideloading, not Play Store. CLAUDE.md documents the upgrade
+        // path to real release signing via GitHub Actions secrets.
+        create("release") {
+            storeFile = file("lifegame.keystore")
+            storePassword = "lifegame"
+            keyAlias = "lifegame"
+            keyPassword = "lifegame"
+        }
     }
 
     buildTypes {
@@ -32,10 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign release with the debug keystore so CI-built APKs are
-            // installable without external secrets. Real release signing
-            // is wired up later via GitHub Actions secrets.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

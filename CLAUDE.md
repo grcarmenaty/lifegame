@@ -187,19 +187,38 @@ committed. If they go missing, regenerate with `gradle wrapper
     arbitrary ref).
   Either way the APK is attached with auto-generated notes.
 
-**Signing:** the `release` build type is currently wired to the **debug
-keystore** (see `app/build.gradle.kts`). That keeps CI builds installable
-without secrets, but the resulting APKs are not Play-Store-signable.
-When you're ready for real release signing:
+**Signing:** the `release` build type is wired to a **stable keystore
+committed to the repo** at `app/lifegame.keystore` (since v0.0.8). All
+credentials are intentionally public (`storePassword = keyPassword =
+"lifegame"`, alias `lifegame`). This is fine because:
 
-1. Generate a keystore: `keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias lifegame`
+- The app is distributed via GitHub Releases, not Play Store.
+- The keystore lets Android verify "this update is from the same
+  app" — that's the whole purpose. The previous setup used the AGP
+  auto-generated `~/.android/debug.keystore`, which on CI was a fresh
+  random keystore per run, breaking in-place updates.
+- A stable keystore committed in the open is exactly equivalent in
+  threat model to Android's standard `debug.keystore` (everyone has
+  it, password is "android"). Anyone who wants to sign a malicious
+  APK can do so trivially with their own keystore anyway; the
+  signature only ever matters to the user's existing install
+  accepting an update.
+
+**To upgrade from v0.0.7 to v0.0.8 you must uninstall once** — the
+signature differs from earlier CI-debug-keystore builds. v0.0.8
+onward installs in place forever.
+
+**If you ever ship to Play Store**, swap to a private keystore via
+GitHub Actions secrets:
+
+1. Generate a fresh keystore: `keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias lifegame`
 2. Base64-encode it and store as the GitHub secret `RELEASE_KEYSTORE_B64`.
 3. Store `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
    `RELEASE_KEY_PASSWORD` as secrets.
-4. Add a `signingConfigs.release { ... }` block in
-   `app/build.gradle.kts` that reads from those secrets via env vars,
-   and switch `buildTypes.release.signingConfig` to it.
-5. Decode the keystore in `release.yml` before `assembleRelease`.
+4. In `app/build.gradle.kts` `signingConfigs.release`, read from
+   `System.getenv("RELEASE_KEYSTORE_PATH")` etc.
+5. Decode the keystore in `release.yml` before `assembleRelease`,
+   delete `app/lifegame.keystore`, re-ignore it.
 
 To cut a release, bump the version and merge to `main`:
 

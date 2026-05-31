@@ -27,6 +27,12 @@ render.experimental.xml
 *.jks
 *.keystore
 
+# ... except the stable release keystore for personal sideloading
+# (debug-class credentials are public on purpose — see CLAUDE.md).
+# When/if production Play Store signing is wired, swap to GitHub secrets
+# and re-ignore this file.
+!app/lifegame.keystore
+
 # Google Services (e.g. APIs or Firebase)
 google-services.json
 
