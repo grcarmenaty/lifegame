@@ -144,7 +144,11 @@ fun DaemonDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Archetype") },
             )
-            VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
+            VoicePresetPicker(
+                selected = voice,
+                onSelect = { voiceKey = it.name },
+                collapsible = true,
+            )
             Button(
                 onClick = { viewModel.save(name, archetype, voice) },
                 enabled = canSave,
