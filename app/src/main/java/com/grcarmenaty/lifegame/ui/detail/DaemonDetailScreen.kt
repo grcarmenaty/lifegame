@@ -132,7 +132,8 @@ fun DaemonDetailScreen(
             LevelSection(
                 level = state.level,
                 progress = state.levelProgress,
-                leading = state.leadingMajor,
+                attentionPoints = state.attentionPoints,
+                atMaxLevel = state.level >= com.grcarmenaty.lifegame.domain.attention.AttentionMath.MAX_LEVEL,
             )
 
             Text("Edit", style = MaterialTheme.typography.headlineSmall)
@@ -399,7 +400,8 @@ private fun SectionHeader(
 private fun LevelSection(
     level: Int,
     progress: Float,
-    leading: LeadingMajor?,
+    attentionPoints: Int,
+    atMaxLevel: Boolean,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
@@ -408,11 +410,11 @@ private fun LevelSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text = "Level $level", style = MaterialTheme.typography.headlineSmall)
-            if (leading != null) {
+            if (atMaxLevel) {
                 Text(
-                    text = "${leading.progress}/${leading.threshold}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "✦",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.secondary,
                 )
             }
         }
@@ -421,7 +423,10 @@ private fun LevelSection(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = leading?.let { "toward next: ${it.title}" } ?: "no open quests",
+            text = if (atMaxLevel)
+                "$attentionPoints attention · the buffer fills"
+            else
+                "$attentionPoints attention",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

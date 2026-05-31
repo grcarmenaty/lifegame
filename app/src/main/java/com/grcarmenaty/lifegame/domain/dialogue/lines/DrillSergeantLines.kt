@@ -81,10 +81,11 @@ internal object DrillSergeantLines {
             cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
             cooldownPicks = 1,
             crossSurfaceCooldown = true,
+            // Multi-beat chain destinations (`ds_lapse_engage`, `ds_lapse_breather`)
+            // were deferred from v0.0.6.1 — for now the only honest choice is to
+            // close the conversation. Re-add when the chain content ships.
             choices = listOf(
-                DialogueChoice("I'll do one now", "ds_lapse_engage"),
-                DialogueChoice("I need a breather", "ds_lapse_breather"),
-                DialogueChoice("Leave me alone", null),
+                DialogueChoice("Acknowledged", null),
             ),
         ),
         DialogueLine(
