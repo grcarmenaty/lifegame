@@ -201,6 +201,7 @@ class PantheonRepository(
         boonText: String,
         firstMajorTitle: String,
         firstMinorTitles: List<String>,
+        firstMinorCadences: List<String> = emptyList(),
     ): Long {
         val daemonId = daemonDao.insert(
             Daemon(name = name, archetype = archetype, voicePreset = voicePreset.name)
@@ -217,12 +218,13 @@ class PantheonRepository(
                 wishRewardCount = 1,
             )
         )
-        firstMinorTitles.forEach { title ->
+        firstMinorTitles.forEachIndexed { index, title ->
+            val cadence = firstMinorCadences.getOrElse(index) { MinorQuest.CADENCE_ONE_OFF }
             questDao.insertMinor(
                 MinorQuest(
                     majorQuestId = majorId,
                     title = title,
-                    cadence = MinorQuest.CADENCE_ONE_OFF,
+                    cadence = cadence,
                 )
             )
         }
