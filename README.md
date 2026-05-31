@@ -1,4 +1,9 @@
-# lifegame
+# Personae
+
+> _The GitHub repository is named `lifegame` for historical reasons —
+> renaming it would invalidate every commit URL, release tag, and
+> previously-shipped APK download. The app's user-facing name is
+> **Personae** as of v0.0.11._
 
 A customizable app to gamify habits and objectives — but the reward
 language is **relationship**, not points.

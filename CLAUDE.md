@@ -2,12 +2,15 @@
 
 Guidance for AI assistants (Claude Code and others) working in this repository.
 
-## What lifegame is
+## What Personae is
 
-**lifegame** — "A customizable app to gamify habits and objectives." A
-native Android app whose reward language is **relationship**, not
-points. The user authors a small pantheon of personifications
-(**daemons**) that ask things of them in a voice they wrote themselves.
+**Personae** (user-facing name; the GitHub repository and internal
+Gradle/package identifiers remain `lifegame` for upgrade compatibility
+— see "Naming" below) — "A customizable app to gamify habits and
+objectives." A native Android app whose reward language is
+**relationship**, not points. The user authors a small pantheon of
+personifications (**daemons**) that ask things of them in a voice
+they wrote themselves.
 
 The product thesis, entity model, loop, MVP cut, and risks live in
 [`docs/design/daemons-and-quests.md`](docs/design/daemons-and-quests.md).
@@ -191,7 +194,8 @@ All commands assume the repo root.
 
 - Configure / sanity-check: `./gradlew :app:tasks`
 - Build debug APK: `./gradlew :app:assembleDebug`
-- Build release APK (debug-signed for now): `./gradlew :app:assembleRelease`
+- Build release APK (signed with the committed keystore): `./gradlew :app:assembleRelease`
+- Kotlin compile only (faster than full build): `./gradlew :app:compileDebugKotlin`
 - JVM unit tests: `./gradlew test`
 - Lint: `./gradlew :app:lint`
 - Install on connected device: `./gradlew :app:installDebug`
@@ -199,6 +203,84 @@ All commands assume the repo root.
 **Wrapper note:** `gradlew` and `gradle/wrapper/gradle-wrapper.jar` are
 committed. If they go missing, regenerate with `gradle wrapper
 --gradle-version 8.11.1 --distribution-type bin`.
+
+### MANDATORY pre-push build discipline
+
+**`./gradlew :app:tasks` only validates Gradle configuration. It does
+NOT run the Kotlin compiler, KSP, or any Room schema validation.** It
+will happily pass while the codebase has dangling references, missing
+imports, removed types still being called, or schema-vs-entity drift.
+The v0.0.10 release blew up on `compileReleaseKotlin` with seven
+errors after I refactored a data class — `:app:tasks` had said the
+project was "clean."
+
+**Rule: before every push that touches `.kt`, `.kts`, schema, or
+manifest files, run at minimum:**
+
+```
+./gradlew :app:compileDebugKotlin
+```
+
+This is fast (~30s incremental, ~2min cold) and catches the entire
+class of "I renamed/removed a type but missed a caller" errors that
+`:app:tasks` misses. For changes touching Room entities/DAOs/migrations,
+also run `./gradlew :app:kspDebugKotlin` (Room schema validation) and
+`./gradlew :app:testDebugUnitTest` (the dialogue/attention lint tests).
+For changes touching Compose, prefer `:app:assembleDebug` which
+exercises resource processing too.
+
+**Android SDK requirement:** the SDK is not always present in the
+ephemeral sandbox. Install with:
+```
+mkdir -p /tmp/android-sdk/cmdline-tools && cd /tmp/android-sdk/cmdline-tools
+curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline.zip
+unzip -q cmdline.zip && mv cmdline-tools latest
+export ANDROID_HOME=/tmp/android-sdk
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+yes | sdkmanager --licenses >/dev/null
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+echo "sdk.dir=/tmp/android-sdk" > local.properties
+```
+The `local.properties` is gitignored. Clean it up before commit if
+needed.
+
+**Common refactor-time failure modes the rule catches:**
+1. Removed a data class field → all read sites are stale references.
+2. Renamed a property → call sites unresolved.
+3. Removed a top-level type → composables still take it as a parameter.
+4. Removed an enum value → `when` statements lose exhaustiveness.
+5. Renamed/moved a function → callers fail import resolution.
+6. Added a Room entity field without a matching migration ALTER →
+   schema mismatch (caught by `kspDebugKotlin` + runtime validator).
+
+**This rule is unconditional. There is no class of edit small enough
+to skip it for.** A one-line cosmetic edit can break compilation
+(e.g., changing a `when` branch on a sealed class). The build cost is
+trivial compared to a failed release and the recovery turn it forces.
+
+### Naming
+
+- **User-facing app name** (Android launcher label, README headline,
+  CLAUDE.md headline): **Personae**.
+- **GitHub repository slug**: `lifegame` (stays — renaming the repo
+  would break every commit URL, the release workflow's existing tags,
+  every previously-shipped APK download link).
+- **Gradle root project name** (`settings.gradle.kts`): `personae`
+  (renamed v0.0.11). Internal-only; affects `:app` module paths in
+  `./gradlew` invocations? No — `:app` stays `:app`. Affects nothing
+  user-visible.
+- **Android `applicationId` and Kotlin package** (`com.grcarmenaty.lifegame`):
+  unchanged. Changing them would make the new APK a different app
+  from Android's perspective (different launcher icon, no upgrade
+  path over installed v0.0.10 builds) — which directly fights the
+  in-place-update guarantee we set up with the stable keystore in
+  v0.0.8. If a full package rename is wanted later, it'd be a
+  deliberate one-time uninstall cost like v0.0.7 → v0.0.8 was.
+- **Database file** (`lifegame.db`): unchanged for the same upgrade-
+  compat reason.
+- **Keystore file** (`app/lifegame.keystore`): unchanged. The
+  filename doesn't appear in the APK; renaming it would require
+  updating `signingConfigs.release.storeFile` and adds zero value.
 
 ## CI / Release
 

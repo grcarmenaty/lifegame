@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "lifegame"
+rootProject.name = "personae"
 include(":app")
