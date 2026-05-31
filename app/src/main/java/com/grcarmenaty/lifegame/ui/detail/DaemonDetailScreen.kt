@@ -70,6 +70,7 @@ fun DaemonDetailScreen(
     val state by viewModel.state.collectAsState()
     val saved by viewModel.saved.collectAsState()
     val deletePreview by viewModel.deletePreview.collectAsState()
+    val apotheosis by viewModel.apotheosis.collectAsState()
 
     val daemon = state.daemon
     if (daemon == null) {
@@ -197,6 +198,8 @@ fun DaemonDetailScreen(
                         onAddMinor = { addingMinorForMajor = major.id },
                         onDeleteMajor = { viewModel.requestDeleteMajor(major.id, major.title) },
                         onDeleteMinor = { viewModel.deleteMinor(it) },
+                        onCompleteMajor = { viewModel.completeMajor(major.id) },
+                        onReopenMajor = { viewModel.reopenMajor(major.id) },
                     )
                 }
             }
@@ -310,6 +313,47 @@ fun DaemonDetailScreen(
             }
         )
     }
+
+    apotheosis?.let { event ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissApotheosis,
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissApotheosis) { Text("Continue") }
+            },
+            title = {
+                Text(
+                    text = "${event.daemonName} — level ${event.newLevel}",
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val voiceText = event.engineLine
+                        ?: event.voicePreset.apotheosis(event.daemonId)
+                    Text(
+                        text = "“$voiceText”",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = "“${event.completedMajorTitle}” is complete.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val granted = event.grantedBoonText
+                    if (granted != null && event.grantedBoonCount > 0) {
+                        Text(
+                            text = if (event.grantedBoonCount == 1)
+                                "As promised — “$granted.”"
+                            else
+                                "As promised — “$granted.” ×${event.grantedBoonCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        )
+    }
 }
 
 // ---- Sub-composables ----
@@ -401,6 +445,8 @@ private fun MajorCard(
     onAddMinor: () -> Unit,
     onDeleteMajor: () -> Unit,
     onDeleteMinor: (Long) -> Unit,
+    onCompleteMajor: () -> Unit,
+    onReopenMajor: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -424,7 +470,7 @@ private fun MajorCard(
                         text = if (major.completed)
                             "completed"
                         else
-                            "${major.progressCount}/${major.thresholdCount}",
+                            "${major.progressCount} minor contributions",
                         style = MaterialTheme.typography.labelLarge,
                         color = if (major.completed)
                             MaterialTheme.colorScheme.primary
@@ -449,12 +495,26 @@ private fun MajorCard(
                     MinorRow(minor = minor, onDelete = { onDeleteMinor(minor.id) })
                 }
             }
-            if (!major.completed) {
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onAddMinor) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.padding(end = 4.dp))
-                    Text("Add minor")
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (!major.completed) {
+                    TextButton(onClick = onAddMinor) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.padding(end = 4.dp))
+                        Text("Add minor")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = onCompleteMajor) {
+                        Text("Mark complete")
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                    OutlinedButton(onClick = onReopenMajor) {
+                        Text("Reopen")
+                    }
                 }
             }
         }

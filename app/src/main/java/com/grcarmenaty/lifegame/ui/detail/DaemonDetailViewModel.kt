@@ -7,6 +7,7 @@ import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.ApotheosisEvent
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -104,6 +105,9 @@ class DaemonDetailViewModel(
     private val _deletePreview = MutableStateFlow<DeleteMajorPreview?>(null)
     val deletePreview: StateFlow<DeleteMajorPreview?> = _deletePreview
 
+    private val _apotheosis = MutableStateFlow<ApotheosisEvent?>(null)
+    val apotheosis: StateFlow<ApotheosisEvent?> = _apotheosis
+
     fun save(name: String, archetype: String, voicePreset: VoicePreset) {
         viewModelScope.launch {
             repository.updateDaemon(daemonId, name.trim(), archetype.trim(), voicePreset)
@@ -143,6 +147,24 @@ class DaemonDetailViewModel(
 
     fun deleteMinor(minorId: Long) {
         viewModelScope.launch { repository.deleteMinor(minorId) }
+    }
+
+    /**
+     * User-driven close of a major quest. The only path that fires
+     * apotheosis — minor completions only track progress now.
+     */
+    fun completeMajor(majorId: Long) {
+        viewModelScope.launch {
+            val event = repository.completeMajor(majorId)
+            if (event != null) _apotheosis.value = event
+        }
+    }
+
+    fun dismissApotheosis() { _apotheosis.value = null }
+
+    /** Reopen a previously-closed major. No wish refund. */
+    fun reopenMajor(majorId: Long) {
+        viewModelScope.launch { repository.reopenMajor(majorId) }
     }
 
     /**

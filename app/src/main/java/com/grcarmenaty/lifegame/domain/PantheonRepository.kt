@@ -232,16 +232,19 @@ class PantheonRepository(
     }
 
     /**
-     * Mark a minor quest complete and propagate progress to its major.
-     * Returns an [ApotheosisEvent] if this completion tipped the major
-     * over its threshold — the UI uses it to show the apotheosis dialog.
+     * Mark a minor quest complete. The minor's contribution accumulates
+     * onto its parent major's [MajorQuest.progressCount] for tracking,
+     * but **never** auto-closes the major — closing a major is a user
+     * decision (see [completeMajor]). Minors are small repeatable or
+     * one-off acts; the major is a month-scale goal whose completion
+     * the user controls.
      */
-    suspend fun completeMinor(minorId: Long): ApotheosisEvent? {
-        val minor = questDao.getMinorById(minorId) ?: return null
-        if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return null
+    suspend fun completeMinor(minorId: Long) {
+        val minor = questDao.getMinorById(minorId) ?: return
+        if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return
         if (minor.cadence == MinorQuest.CADENCE_DAILY &&
             minor.lastCompletedAt?.let { sameLocalDay(it, System.currentTimeMillis()) } == true) {
-            return null
+            return
         }
 
         questDao.updateMinor(
@@ -251,15 +254,23 @@ class PantheonRepository(
             )
         )
 
-        val major = questDao.getMajorById(minor.majorQuestId) ?: return null
-        if (major.completed) return null
+        val major = questDao.getMajorById(minor.majorQuestId) ?: return
+        if (major.completed) return
+        // Track-only: progressCount accumulates as informational signal,
+        // but the major's `completed` flag is never flipped here.
+        questDao.updateMajor(major.copy(progressCount = major.progressCount + minor.weight))
+    }
 
-        val newProgress = major.progressCount + minor.weight
-        val nowComplete = newProgress >= major.thresholdCount
-        questDao.updateMajor(
-            major.copy(progressCount = newProgress, completed = nowComplete)
-        )
-        if (!nowComplete) return null
+    /**
+     * User-driven close of a major. This is the only path that triggers
+     * apotheosis (daemon level-up + boon deposit). Returns the event so
+     * the UI can show the in-voice dialog; returns null if the major
+     * doesn't exist or is already closed.
+     */
+    suspend fun completeMajor(majorId: Long): ApotheosisEvent? {
+        val major = questDao.getMajorById(majorId) ?: return null
+        if (major.completed) return null
+        questDao.updateMajor(major.copy(completed = true))
 
         val daemon = daemonDao.getById(major.daemonId) ?: return null
         // Apotheosis: deposit the configured reward on the boon. If
@@ -271,10 +282,8 @@ class PantheonRepository(
             }
             boon.text
         }
-        // Track the close on daemon_state for earned predicates.
         dialogueStateStore.ensureDaemonState(daemon.id)
         dialogueDao.incrementMajorsClosed(daemon.id)
-        // Engine-picked apotheosis line (falls back to voice preset if null).
         val engineLine = pickInline(daemon.id, LineCategory.APOTHEOSIS)
         return ApotheosisEvent(
             daemonId = daemon.id,
@@ -286,6 +295,18 @@ class PantheonRepository(
             grantedBoonCount = if (grantedText != null) major.wishRewardCount else 0,
             engineLine = engineLine,
         )
+    }
+
+    /**
+     * Reopen a previously-closed major (e.g., to undo a major that
+     * auto-closed under pre-v0.0.10 behavior, or to walk back a wrong
+     * tap). No wish refund — the boon deposit history is intentionally
+     * permanent.
+     */
+    suspend fun reopenMajor(majorId: Long) {
+        val major = questDao.getMajorById(majorId) ?: return
+        if (!major.completed) return
+        questDao.updateMajor(major.copy(completed = false))
     }
 
     /**

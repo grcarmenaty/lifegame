@@ -135,8 +135,10 @@ class DailyViewModel(
 
     fun completeMinor(minorId: Long) {
         viewModelScope.launch {
-            val event = repository.completeMinor(minorId)
-            if (event != null) _apotheosis.value = event
+            repository.completeMinor(minorId)
+            // No apotheosis here — closing a major is user-driven
+            // (see DaemonDetailViewModel.completeMajor). Minor
+            // completions track progress but never auto-close.
         }
     }
     fun dismissApotheosis() { _apotheosis.value = null }
