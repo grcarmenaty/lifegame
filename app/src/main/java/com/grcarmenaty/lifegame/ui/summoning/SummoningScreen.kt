@@ -1,6 +1,7 @@
 package com.grcarmenaty.lifegame.ui.summoning
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +13,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -169,16 +173,9 @@ fun SummoningScreen(
                                 modifier = Modifier.weight(1f),
                                 placeholder = { Text("Small act ${i + 1}") },
                             )
-                            FilterChip(
-                                selected = minorCadenceStates[i].value == MinorQuest.CADENCE_DAILY,
-                                onClick = {
-                                    minorCadenceStates[i].value =
-                                        if (minorCadenceStates[i].value == MinorQuest.CADENCE_DAILY)
-                                            MinorQuest.CADENCE_ONE_OFF
-                                        else
-                                            MinorQuest.CADENCE_DAILY
-                                },
-                                label = { Text("Daily") },
+                            CadencePicker(
+                                current = minorCadenceStates[i].value,
+                                onPick = { minorCadenceStates[i].value = it },
                             )
                         }
                         if (i < slotCount - 1) Spacer(Modifier.height(8.dp))
@@ -263,6 +260,34 @@ fun SummoningScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CadencePicker(
+    current: String,
+    onPick: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        AssistChip(
+            onClick = { expanded = true },
+            label = { Text(MinorQuest.cadenceLabel(current)) },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            MinorQuest.ALL_CADENCES.forEach { c ->
+                DropdownMenuItem(
+                    text = { Text(MinorQuest.cadenceLabel(c)) },
+                    onClick = {
+                        onPick(c)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }

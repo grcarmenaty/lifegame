@@ -32,5 +32,18 @@ data class MinorQuest(
     companion object {
         const val CADENCE_ONE_OFF = "ONE_OFF"
         const val CADENCE_DAILY = "DAILY"
+        const val CADENCE_WEEKLY = "WEEKLY"
+        const val CADENCE_MONTHLY = "MONTHLY"
+
+        /** Display order in pickers. One-off first; the repeatable cadences ascending. */
+        val ALL_CADENCES = listOf(CADENCE_ONE_OFF, CADENCE_DAILY, CADENCE_WEEKLY, CADENCE_MONTHLY)
+
+        fun cadenceLabel(cadence: String): String = when (cadence) {
+            CADENCE_ONE_OFF -> "One-off"
+            CADENCE_DAILY -> "Daily"
+            CADENCE_WEEKLY -> "Weekly"
+            CADENCE_MONTHLY -> "Monthly"
+            else -> cadence
+        }
     }
 }

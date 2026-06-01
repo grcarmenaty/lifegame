@@ -148,17 +148,6 @@ fun DailyScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    val granted = event.grantedBoonText
-                    if (granted != null && event.grantedBoonCount > 0) {
-                        Text(
-                            text = if (event.grantedBoonCount == 1)
-                                "As promised — “$granted.”"
-                            else
-                                "As promised — “$granted.” ×${event.grantedBoonCount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         )
@@ -366,32 +355,51 @@ private fun DaemonBlock(
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
 
-            if (block.openMinors.isEmpty()) {
+            if (block.majorGroups.isEmpty()) {
                 Text(
                     text = "Nothing asked of you today.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    block.openMinors.forEach { entry ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.background
-                            ),
-                            onClick = { onComplete(entry.minor.id) },
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = entry.minor.title,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                Text(
-                                    text = entry.parentMajorTitle,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    block.majorGroups.forEach { group ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = group.majorTitle,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            group.openMinors.forEach { minor ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.background
+                                    ),
+                                    onClick = { onComplete(minor.id) },
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            text = minor.title,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        if (minor.cadence != com.grcarmenaty.lifegame.data.entities.MinorQuest.CADENCE_ONE_OFF) {
+                                            Text(
+                                                text = com.grcarmenaty.lifegame.data.entities.MinorQuest.cadenceLabel(minor.cadence).lowercase(),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

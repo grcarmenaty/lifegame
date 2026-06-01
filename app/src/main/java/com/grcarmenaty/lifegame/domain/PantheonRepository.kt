@@ -365,10 +365,17 @@ class PantheonRepository(
         val minor = questDao.getMinorById(minorId) ?: return
         if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return
         val now = System.currentTimeMillis()
-        if (minor.cadence == MinorQuest.CADENCE_DAILY &&
-            minor.lastCompletedAt?.let { sameLocalDay(it, now) } == true) {
-            return
-        }
+        // Repeatable minor: don't accept another completion in the current
+        // cadence window (today / this week / this month).
+        val alreadyDoneThisWindow = minor.lastCompletedAt?.let { last ->
+            when (minor.cadence) {
+                MinorQuest.CADENCE_DAILY -> sameLocalDay(last, now)
+                MinorQuest.CADENCE_WEEKLY -> sameLocalWeek(last, now)
+                MinorQuest.CADENCE_MONTHLY -> sameLocalMonth(last, now)
+                else -> false
+            }
+        } ?: false
+        if (alreadyDoneThisWindow) return
 
         questDao.updateMinor(
             minor.copy(
@@ -679,6 +686,24 @@ class PantheonRepository(
         val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
         return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
             ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun sameLocalWeek(a: Long, b: Long): Boolean {
+        val tz = TimeZone.getDefault()
+        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
+        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
+        // WEEK_OF_YEAR rolls at the Calendar's first-day-of-week (locale
+        // default). Pair with year-of-week to avoid edge-of-year collisions.
+        return ca.getWeekYear() == cb.getWeekYear() &&
+            ca.get(Calendar.WEEK_OF_YEAR) == cb.get(Calendar.WEEK_OF_YEAR)
+    }
+
+    private fun sameLocalMonth(a: Long, b: Long): Boolean {
+        val tz = TimeZone.getDefault()
+        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
+        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
+            ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH)
     }
 }
 

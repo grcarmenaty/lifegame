@@ -39,15 +39,20 @@ data class DaemonDailyBlock(
     /** True at level 4 — UI shows a shimmer pip on the bar (Ally polish). */
     val atMaxLevel: Boolean,
     val greeting: String,
-    val openMinors: List<MinorEntry>,
+    /** Minors grouped under their parent major. v0.0.11: minors live
+     *  under their major as a heading, not as a sub-label per card. */
+    val majorGroups: List<MajorGroup>,
     val availableBoons: List<Boon>,
 ) {
     val totalWishes: Int get() = availableBoons.sumOf { it.count }
+    /** Total open minors across all groups, for empty-state rendering. */
+    val openMinorCount: Int get() = majorGroups.sumOf { it.openMinors.size }
 }
 
-data class MinorEntry(
-    val minor: MinorQuest,
-    val parentMajorTitle: String,
+data class MajorGroup(
+    val majorId: Long,
+    val majorTitle: String,
+    val openMinors: List<MinorQuest>,
 )
 
 /** Daemons whose computed level has risen above their `lastSeenLevel`. */
@@ -102,27 +107,35 @@ class DailyViewModel(
         val voice = VoicePreset.fromKey(daemon.voicePreset)
         val greetingSeed = daemon.id + todaySeed()
 
-        val openMinorsFlow: Flow<List<MinorEntry>> =
+        val majorGroupsFlow: Flow<List<MajorGroup>> =
             repository.observeMajors(daemon.id).flatMapLatest { majors ->
                 val openMajors = majors.filter { !it.completed }
                 if (openMajors.isEmpty()) {
                     flowOf(emptyList())
                 } else {
-                    val perMajor: List<Flow<List<MinorEntry>>> = openMajors.map { major ->
+                    val perMajor: List<Flow<MajorGroup>> = openMajors.map { major ->
                         repository.observeMinors(major.id).map { minors ->
-                            minors.filter { isOpenToday(it) }
-                                .map { MinorEntry(it, major.title) }
+                            MajorGroup(
+                                majorId = major.id,
+                                majorTitle = major.title,
+                                openMinors = minors.filter { isOpenNow(it) },
+                            )
                         }
                     }
-                    combine(perMajor) { lists -> lists.flatMap { it } }
+                    // Skip empty groups — a major with no open minors today
+                    // (e.g., everything daily-completed already) shouldn't
+                    // show as a heading with nothing under it.
+                    combine(perMajor) { groups ->
+                        groups.toList().filter { it.openMinors.isNotEmpty() }
+                    }
                 }
             }
 
         return combine(
-            openMinorsFlow,
+            majorGroupsFlow,
             repository.observeBoons(daemon.id),
             repository.observeDaemonState(daemon.id),
-        ) { openMinors, boons, ds ->
+        ) { majorGroups, boons, ds ->
             val attention = ds?.attentionPoints ?: 0
             val level = AttentionMath.levelFor(attention)
             DaemonDailyBlock(
@@ -132,7 +145,7 @@ class DailyViewModel(
                 levelProgress = AttentionMath.levelProgress(attention),
                 atMaxLevel = level >= AttentionMath.MAX_LEVEL,
                 greeting = voice.greeting(greetingSeed),
-                openMinors = openMinors,
+                majorGroups = majorGroups,
                 availableBoons = boons.filter { it.count > 0 },
             )
         }
@@ -176,11 +189,16 @@ class DailyViewModel(
 
     fun dismissBoon() { _boonGranted.value = null }
 
-    private fun isOpenToday(m: MinorQuest): Boolean = when (m.cadence) {
-        MinorQuest.CADENCE_ONE_OFF -> !m.completed
-        MinorQuest.CADENCE_DAILY ->
-            m.lastCompletedAt?.let { !sameLocalDay(it, System.currentTimeMillis()) } ?: true
-        else -> !m.completed
+    private fun isOpenNow(m: MinorQuest): Boolean {
+        val last = m.lastCompletedAt ?: return !m.completed
+        val now = System.currentTimeMillis()
+        return when (m.cadence) {
+            MinorQuest.CADENCE_ONE_OFF -> !m.completed
+            MinorQuest.CADENCE_DAILY -> !sameLocalDay(last, now)
+            MinorQuest.CADENCE_WEEKLY -> !sameLocalWeek(last, now)
+            MinorQuest.CADENCE_MONTHLY -> !sameLocalMonth(last, now)
+            else -> !m.completed
+        }
     }
 
     private fun sameLocalDay(a: Long, b: Long): Boolean {
@@ -189,6 +207,22 @@ class DailyViewModel(
         val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
         return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
             ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun sameLocalWeek(a: Long, b: Long): Boolean {
+        val tz = TimeZone.getDefault()
+        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
+        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
+        return ca.getWeekYear() == cb.getWeekYear() &&
+            ca.get(Calendar.WEEK_OF_YEAR) == cb.get(Calendar.WEEK_OF_YEAR)
+    }
+
+    private fun sameLocalMonth(a: Long, b: Long): Boolean {
+        val tz = TimeZone.getDefault()
+        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
+        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
+            ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH)
     }
 
     private fun todaySeed(): Long {

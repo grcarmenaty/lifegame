@@ -122,7 +122,8 @@ council):
 - Editing quest/boon text (delete + re-add for now)
 - Refund of contributions when a DAILY minor that has contributed is
   deleted (clean refund needs per-minor completion-count tracking)
-- Cadences beyond ONE_OFF + DAILY
+- Custom-interval cadences (every N days) — v0.0.11 ships
+  ONE_OFF / DAILY / WEEKLY / MONTHLY; custom intervals deferred
 - Cross-daemon mechanics (including `@token` flavor references)
 - Failure-handling tonal decay (greeting/completion lines stay neutral
   for now; reconciliation beats not wired up)

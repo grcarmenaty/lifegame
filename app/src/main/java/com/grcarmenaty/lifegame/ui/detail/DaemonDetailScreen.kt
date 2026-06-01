@@ -661,7 +661,7 @@ private fun AddMajorDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AddMinorDialog(
     onDismiss: () -> Unit,
@@ -687,17 +687,17 @@ private fun AddMinorDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = cadence == MinorQuest.CADENCE_ONE_OFF,
-                        onClick = { cadence = MinorQuest.CADENCE_ONE_OFF },
-                        label = { Text("One-off") },
-                    )
-                    FilterChip(
-                        selected = cadence == MinorQuest.CADENCE_DAILY,
-                        onClick = { cadence = MinorQuest.CADENCE_DAILY },
-                        label = { Text("Daily") },
-                    )
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    MinorQuest.ALL_CADENCES.forEach { c ->
+                        FilterChip(
+                            selected = cadence == c,
+                            onClick = { cadence = c },
+                            label = { Text(MinorQuest.cadenceLabel(c)) },
+                        )
+                    }
                 }
                 OutlinedTextField(
                     value = weightText,
