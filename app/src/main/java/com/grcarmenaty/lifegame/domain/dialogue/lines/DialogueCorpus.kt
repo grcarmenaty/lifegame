@@ -19,8 +19,16 @@ object DialogueCorpus {
         TherapistLines.all,
         CoachLines.all,
         HermitLines.all,
-        // v0.0.12 themed packs (Drill Sergeant ships first).
+        // v0.0.12 themed packs. Each pack mirrors the base archetype's
+        // structure (60 lines) with theme-specific vocabulary; the
+        // engine filters by `DialogueLine.theme`.
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .DrillSergeantExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantHydrationLines.all,
     ).flatten()
 }
