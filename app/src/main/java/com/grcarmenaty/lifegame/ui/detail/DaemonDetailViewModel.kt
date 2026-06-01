@@ -154,8 +154,24 @@ class DaemonDetailViewModel(
         viewModelScope.launch { repository.addMajor(daemonId, title.trim()) }
     }
 
-    fun addMinor(majorId: Long, title: String, cadence: String, weight: Int) {
-        viewModelScope.launch { repository.addMinor(majorId, title.trim(), cadence, weight) }
+    fun addMinor(
+        majorId: Long,
+        title: String,
+        cadence: String,
+        cadenceCount: Int,
+        cadenceDays: Set<Int>,
+        weight: Int,
+    ) {
+        viewModelScope.launch {
+            repository.addMinor(
+                majorId = majorId,
+                title = title.trim(),
+                cadence = cadence,
+                weight = weight,
+                cadenceCount = cadenceCount,
+                cadenceDays = cadenceDays,
+            )
+        }
     }
 
     fun deleteMinor(minorId: Long) {

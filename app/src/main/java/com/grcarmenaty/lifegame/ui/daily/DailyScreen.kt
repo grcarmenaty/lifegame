@@ -392,8 +392,16 @@ private fun DaemonBlock(
                                             modifier = Modifier.weight(1f),
                                         )
                                         if (minor.cadence != com.grcarmenaty.lifegame.data.entities.MinorQuest.CADENCE_ONE_OFF) {
+                                            val effective = minor.effectiveCount()
+                                            val progress = if (effective > 1)
+                                                "  (${minor.completionsThisWindow}/$effective)" else ""
                                             Text(
-                                                text = com.grcarmenaty.lifegame.data.entities.MinorQuest.cadenceLabel(minor.cadence).lowercase(),
+                                                text = com.grcarmenaty.lifegame.data.entities.MinorQuest
+                                                    .cadenceLongLabel(
+                                                        minor.cadence,
+                                                        minor.cadenceCount,
+                                                        minor.parsedCadenceDays(),
+                                                    ).lowercase() + progress,
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )

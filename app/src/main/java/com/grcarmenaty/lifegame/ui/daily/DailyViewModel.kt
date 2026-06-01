@@ -12,7 +12,6 @@ import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
 import com.grcarmenaty.lifegame.domain.attention.AttentionMath
 import java.util.Calendar
-import java.util.TimeZone
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -190,39 +189,23 @@ class DailyViewModel(
     fun dismissBoon() { _boonGranted.value = null }
 
     private fun isOpenNow(m: MinorQuest): Boolean {
-        val last = m.lastCompletedAt ?: return !m.completed
-        val now = System.currentTimeMillis()
-        return when (m.cadence) {
-            MinorQuest.CADENCE_ONE_OFF -> !m.completed
-            MinorQuest.CADENCE_DAILY -> !sameLocalDay(last, now)
-            MinorQuest.CADENCE_WEEKLY -> !sameLocalWeek(last, now)
-            MinorQuest.CADENCE_MONTHLY -> !sameLocalMonth(last, now)
-            else -> !m.completed
+        if (m.cadence == MinorQuest.CADENCE_ONE_OFF) return !m.completed
+        // WEEKLY + day-pinned: only openable on selected days.
+        if (m.cadence == MinorQuest.CADENCE_WEEKLY) {
+            val days = m.parsedCadenceDays()
+            if (days.isNotEmpty()) {
+                val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                if (today !in days) return false
+            }
         }
-    }
-
-    private fun sameLocalDay(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
-            ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
-    }
-
-    private fun sameLocalWeek(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        return ca.getWeekYear() == cb.getWeekYear() &&
-            ca.get(Calendar.WEEK_OF_YEAR) == cb.get(Calendar.WEEK_OF_YEAR)
-    }
-
-    private fun sameLocalMonth(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
-            ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH)
+        val last = m.lastCompletedAt ?: return true
+        val now = System.currentTimeMillis()
+        val inSameWindow = repository.sameWindowAs(m, last, now)
+        // Fresh window ⇒ open. Same window ⇒ open only if we haven't
+        // hit the per-window cap yet (n times per day/week/month, or
+        // 1 per day for weekly-with-days).
+        return if (!inSameWindow) true
+        else m.completionsThisWindow < m.effectiveCount()
     }
 
     private fun todaySeed(): Long {

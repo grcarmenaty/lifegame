@@ -28,7 +28,7 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
         LineSeen::class, CooldownPlay::class, DaemonState::class,
         EpicChapter::class, PersonalDate::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -51,7 +51,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                        MIGRATION_4_5, MIGRATION_5_6,
+                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                     )
                     .build()
                     .also { instance = it }
@@ -376,5 +376,32 @@ internal val MIGRATION_2_3 = object : Migration(2, 3) {
             )
             """.trimIndent()
         )
+    }
+}
+
+/**
+ * v6 → v7: cadence enrichment (v0.0.12). Adds three columns to
+ * `minor_quests` so a minor can be authored as "n times per period"
+ * and weekly minors can pin specific days of the week.
+ *
+ *   - `cadenceCount` — N times per window. Defaults to 1 (matches
+ *     the pre-v0.0.12 implicit "once per period").
+ *   - `cadenceDays` — CSV of `Calendar.DAY_OF_WEEK` ints, nullable.
+ *     Only meaningful for WEEKLY rows. Null/empty = any day.
+ *   - `completionsThisWindow` — per-window counter; the repository
+ *     compares window keys on completion and resets vs. increments.
+ *
+ * Purely additive ALTER — safe on SQLite without table recreate.
+ * For existing rows the defaults preserve the old semantics: each
+ * minor is "1 per period", `cadenceDays = null`, counter = 0.
+ * The first completion after the migration sets the counter to 1 and
+ * `lastCompletedAt` updates as before; isOpen treats `count = 0`
+ * inside a fresh window as "open" exactly like a never-completed row.
+ */
+internal val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `cadenceCount` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `cadenceDays` TEXT")
+        db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `completionsThisWindow` INTEGER NOT NULL DEFAULT 0")
     }
 }

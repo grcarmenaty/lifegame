@@ -401,14 +401,25 @@ class PantheonRepository(
         attentionDecay.applyForAll()
     }
 
+    /**
+     * Authoring shape for the summoning ritual's first batch of minors.
+     * Mirrors the v0.0.12 cadence richness on [MinorQuest] so the UI
+     * can pass everything in one list instead of N parallel arrays.
+     */
+    data class NewMinorSpec(
+        val title: String,
+        val cadence: String = MinorQuest.CADENCE_ONE_OFF,
+        val cadenceCount: Int = 1,
+        val cadenceDays: Set<Int> = emptySet(),
+    )
+
     suspend fun summonDaemon(
         name: String,
         archetype: String,
         voicePreset: VoicePreset,
         boonText: String,
         firstMajorTitle: String,
-        firstMinorTitles: List<String>,
-        firstMinorCadences: List<String> = emptyList(),
+        firstMinors: List<NewMinorSpec>,
     ): Long {
         val daemonId = daemonDao.insert(
             Daemon(name = name, archetype = archetype, voicePreset = voicePreset.name)
@@ -420,18 +431,19 @@ class PantheonRepository(
             MajorQuest(
                 daemonId = daemonId,
                 title = firstMajorTitle,
-                thresholdCount = firstMinorTitles.size.coerceAtLeast(1),
+                thresholdCount = firstMinors.size.coerceAtLeast(1),
                 wishBoonId = boonId,
                 wishRewardCount = 1,
             )
         )
-        firstMinorTitles.forEachIndexed { index, title ->
-            val cadence = firstMinorCadences.getOrElse(index) { MinorQuest.CADENCE_ONE_OFF }
+        firstMinors.forEach { spec ->
             questDao.insertMinor(
                 MinorQuest(
                     majorQuestId = majorId,
-                    title = title,
-                    cadence = cadence,
+                    title = spec.title,
+                    cadence = spec.cadence,
+                    cadenceCount = spec.cadenceCount.coerceAtLeast(1),
+                    cadenceDays = MinorQuest.encodeDays(spec.cadenceDays),
                 )
             )
         }
@@ -440,36 +452,48 @@ class PantheonRepository(
 
     /**
      * Mark a minor quest complete. Side effects:
-     *  - the minor row updates (one-off → completed; daily → today
-     *    flagged as done)
+     *  - the minor row updates (ONE_OFF → completed; repeatable → window
+     *    counter advances)
      *  - progressCount on the parent major bumps (informational only;
      *    the major **never** auto-closes, see [completeMajor])
      *  - the daemon's `attentionPoints` grows by `minor.weight`
-     *  - the daemon's `minorsCompletedSinceAccrual` increments; if it
-     *    reaches the resolved threshold, +1 to the daemon's first
-     *    boon and counter resets
+     *  - `minorsCompletedSinceAccrual` increments; on threshold, +1 to
+     *    the daemon's first boon and counter resets
      *  - if attention crosses a level threshold, [levelUps] emits
+     *
+     * v0.0.12 cadence semantics:
+     *  - DAILY → up to `cadenceCount` completions per local day
+     *  - WEEKLY (no days) → up to `cadenceCount` per local ISO week
+     *  - WEEKLY (with days) → 1 per selected day; rejects on other days
+     *  - MONTHLY → up to `cadenceCount` per local month
+     *  - ONE_OFF → exactly 1, then `completed = true`
      */
     suspend fun completeMinor(minorId: Long) {
         val minor = questDao.getMinorById(minorId) ?: return
         if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return
         val now = System.currentTimeMillis()
-        // Repeatable minor: don't accept another completion in the current
-        // cadence window (today / this week / this month).
-        val alreadyDoneThisWindow = minor.lastCompletedAt?.let { last ->
-            when (minor.cadence) {
-                MinorQuest.CADENCE_DAILY -> sameLocalDay(last, now)
-                MinorQuest.CADENCE_WEEKLY -> sameLocalWeek(last, now)
-                MinorQuest.CADENCE_MONTHLY -> sameLocalMonth(last, now)
-                else -> false
+
+        // WEEKLY + day-pinned: today must be a selected day to accept.
+        if (minor.cadence == MinorQuest.CADENCE_WEEKLY) {
+            val days = minor.parsedCadenceDays()
+            if (days.isNotEmpty()) {
+                val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                if (today !in days) return
             }
+        }
+
+        val isSameWindow = minor.lastCompletedAt?.let { last ->
+            sameWindowAs(minor, last, now)
         } ?: false
-        if (alreadyDoneThisWindow) return
+        val nextCountInWindow = if (isSameWindow) minor.completionsThisWindow + 1 else 1
+        val maxThisWindow = minor.effectiveCount()
+        if (nextCountInWindow > maxThisWindow) return
 
         questDao.updateMinor(
             minor.copy(
                 completed = minor.cadence == MinorQuest.CADENCE_ONE_OFF,
                 lastCompletedAt = now,
+                completionsThisWindow = nextCountInWindow,
             )
         )
 
@@ -620,6 +644,8 @@ class PantheonRepository(
         title: String,
         cadence: String,
         weight: Int,
+        cadenceCount: Int = 1,
+        cadenceDays: Set<Int> = emptySet(),
     ): Boolean {
         val major = questDao.getMajorById(majorId) ?: return false
         if (major.completed) return false
@@ -629,6 +655,8 @@ class PantheonRepository(
                 title = title,
                 cadence = cadence,
                 weight = weight.coerceAtLeast(1),
+                cadenceCount = cadenceCount.coerceAtLeast(1),
+                cadenceDays = MinorQuest.encodeDays(cadenceDays),
             )
         )
         return true
@@ -809,6 +837,24 @@ class PantheonRepository(
         val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
         return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
             ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH)
+    }
+
+    /**
+     * Whether [last] and [now] fall in the same cadence window for the
+     * given [minor]. The single source of truth used by [completeMinor]
+     * and by the Daily VM's `isOpenNow`, so completion gating and
+     * "open" rendering can't drift.
+     *
+     * WEEKLY with day-pinning uses per-day windows (one completion per
+     * selected day); plain WEEKLY uses the local ISO week.
+     */
+    fun sameWindowAs(minor: MinorQuest, last: Long, now: Long): Boolean = when (minor.cadence) {
+        MinorQuest.CADENCE_DAILY -> sameLocalDay(last, now)
+        MinorQuest.CADENCE_WEEKLY ->
+            if (minor.cadenceDays.isNullOrBlank()) sameLocalWeek(last, now)
+            else sameLocalDay(last, now)
+        MinorQuest.CADENCE_MONTHLY -> sameLocalMonth(last, now)
+        else -> false
     }
 }
 
