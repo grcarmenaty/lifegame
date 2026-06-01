@@ -54,5 +54,13 @@ object DialogueCorpus {
             .DrillSergeantHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .DrillSergeantOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantBoundariesLines.all,
     ).flatten()
 }
