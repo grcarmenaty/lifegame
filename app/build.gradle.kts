@@ -18,8 +18,8 @@ android {
         applicationId = "com.grcarmenaty.lifegame"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.0.10"
+        versionCode = 11
+        versionName = "0.0.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
