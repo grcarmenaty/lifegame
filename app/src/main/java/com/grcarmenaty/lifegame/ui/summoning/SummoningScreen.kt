@@ -32,7 +32,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.remember
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
 import com.grcarmenaty.lifegame.ui.common.CadencePicker
@@ -55,6 +60,10 @@ fun SummoningScreen(
     // process death) don't wipe the ritual mid-flow.
     var step by rememberSaveable { mutableStateOf(0) }
     var archetype by rememberSaveable { mutableStateOf("") }
+    // v0.0.12: theme key. Empty = nothing picked yet; "OTHER" = the
+    // user explicitly chose Other (free text). Any LifeTheme.key
+    // means the daemon will draw from that themed corpus.
+    var themeKey by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var voiceKey by rememberSaveable { mutableStateOf(VoicePreset.GENTLE_MENTOR.name) }
     var majorTitle by rememberSaveable { mutableStateOf("") }
@@ -121,14 +130,33 @@ fun SummoningScreen(
             when (step) {
                 0 -> Prompt(
                     question = "What part of your life is asking to be heard?",
-                    helper = "One line. The thing you want this daemon to speak for.",
+                    helper = "Pick a theme — the daemon's dialogue is tuned to it. " +
+                        "Or pick \"Other\" and write your own.",
                 ) {
-                    OutlinedTextField(
-                        value = archetype,
-                        onValueChange = { archetype = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. my body, my craft, my finances") },
+                    ThemeDropdown(
+                        selectedKey = themeKey,
+                        onPick = { picked ->
+                            themeKey = picked?.key ?: "OTHER"
+                            // Auto-fill the archetype text when a theme is
+                            // picked; user can still override below.
+                            archetype = picked?.archetypeText ?: ""
+                        },
                     )
+                    if (themeKey == "OTHER" || themeKey.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = archetype,
+                            onValueChange = { archetype = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("e.g. my body, my craft, my finances") },
+                            label = {
+                                Text(
+                                    if (themeKey == "OTHER") "What it represents"
+                                    else "Override the default name (optional)"
+                                )
+                            },
+                        )
+                    }
                 }
                 1 -> Prompt(
                     question = "Give it a name.",
@@ -256,6 +284,9 @@ fun SummoningScreen(
                                     boonText = boon.trim(),
                                     firstMajorTitle = majorTitle.trim(),
                                     firstMinors = visibleMinors,
+                                    // Persist the chosen LifeTheme key, or
+                                    // null when "Other" was picked.
+                                    theme = LifeTheme.fromKey(themeKey)?.key,
                                 )
                                 onSummoned()
                             }
@@ -286,5 +317,51 @@ private fun Prompt(
         )
         Spacer(Modifier.height(4.dp))
         content()
+    }
+}
+
+/**
+ * Dropdown of common [LifeTheme] options + an explicit "Other" entry.
+ * The button label reflects the current selection; "Other" surfaces
+ * the free-text archetype field above.
+ */
+@Composable
+private fun ThemeDropdown(
+    selectedKey: String,
+    onPick: (LifeTheme?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val theme = LifeTheme.fromKey(selectedKey)
+    val label = when {
+        theme != null -> theme.display
+        selectedKey == "OTHER" -> "Other (write your own)"
+        else -> "Choose a theme…"
+    }
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(label) }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            LifeTheme.entries.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text(entry.display) },
+                    onClick = {
+                        expanded = false
+                        onPick(entry)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Other (write your own)") },
+                onClick = {
+                    expanded = false
+                    onPick(null)
+                },
+            )
+        }
     }
 }

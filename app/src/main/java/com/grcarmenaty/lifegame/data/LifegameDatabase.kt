@@ -28,7 +28,7 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
         LineSeen::class, CooldownPlay::class, DaemonState::class,
         EpicChapter::class, PersonalDate::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -52,6 +52,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                        MIGRATION_7_8,
                     )
                     .build()
                     .also { instance = it }
@@ -403,5 +404,17 @@ internal val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `cadenceCount` INTEGER NOT NULL DEFAULT 1")
         db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `cadenceDays` TEXT")
         db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `completionsThisWindow` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
+ * v7 → v8: themed dialogue (v0.0.12). Single additive column on
+ * `daemons`: `theme TEXT NULL`. Existing rows get NULL, which the
+ * engine interprets as "Other" — these daemons keep the current
+ * per-archetype corpus untouched.
+ */
+internal val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `daemons` ADD COLUMN `theme` TEXT")
     }
 }

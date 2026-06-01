@@ -19,5 +19,8 @@ object DialogueCorpus {
         TherapistLines.all,
         CoachLines.all,
         HermitLines.all,
+        // v0.0.12 themed packs (Drill Sergeant ships first).
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .DrillSergeantExerciseLines.all,
     ).flatten()
 }

@@ -33,6 +33,14 @@ data class DialogueLine(
     val choices: List<DialogueChoice> = emptyList(),
     val deprecated: Boolean = false,
     val replacedBy: String? = null,
+    /**
+     * v0.0.12 themed dialogue: when non-null, this line only matches
+     * daemons whose `theme` equals this value (see
+     * [com.grcarmenaty.lifegame.domain.LifeTheme]). When null the
+     * line is theme-agnostic and matches any daemon — used for the
+     * baseline per-archetype corpus.
+     */
+    val theme: String? = null,
 )
 
 enum class LineTier { FILLER, CONTEXTUAL, ESSENTIAL }

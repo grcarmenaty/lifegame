@@ -163,6 +163,7 @@ class PantheonRepository(
             attentionLost24h = attentionLost24h,
             holidayToken = holidayToken,
             personalDateLabel = personalDateMatch?.label,
+            theme = daemon.theme,
         )
     }
 
@@ -420,9 +421,15 @@ class PantheonRepository(
         boonText: String,
         firstMajorTitle: String,
         firstMinors: List<NewMinorSpec>,
+        theme: String? = null,
     ): Long {
         val daemonId = daemonDao.insert(
-            Daemon(name = name, archetype = archetype, voicePreset = voicePreset.name)
+            Daemon(
+                name = name,
+                archetype = archetype,
+                voicePreset = voicePreset.name,
+                theme = theme,
+            )
         )
         val boonId = boonDao.insert(
             Boon(daemonId = daemonId, text = boonText, count = 0)

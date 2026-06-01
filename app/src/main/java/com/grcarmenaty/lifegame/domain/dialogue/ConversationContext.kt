@@ -51,4 +51,10 @@ data class ConversationContext(
     // the line at output site — safe because the user wrote it).
     val holidayToken: HolidayToken?,
     val personalDateLabel: String?,
+    /**
+     * v0.0.12 themed dialogue: the daemon's chosen LifeTheme key
+     * (e.g. "EXERCISE"), or null when the user picked "Other" on
+     * summoning. The engine filters theme-tagged lines against this.
+     */
+    val theme: String?,
 )
