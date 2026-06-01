@@ -130,10 +130,11 @@ class PantheonRepository(
         val personalDateMatch = if (!isBirthdayToday) {
             personalDateDao.forMonthDay(todayMonth, todayDay)
         } else null
+        val region = userPrefs.getRegion()
         val holidayToken = when {
             isBirthdayToday -> HolidayToken.BIRTHDAY
             personalDateMatch != null -> HolidayToken.PERSONAL_DATE
-            else -> HolidayCalendar.tokenFor(cal)
+            else -> HolidayCalendar.tokenFor(cal, region)
         }
 
         return ConversationContext(

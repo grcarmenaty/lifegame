@@ -113,27 +113,38 @@ Scaffold is in place. The app builds, runs, and ships:
   boons" advice (`VoicePreset.staySmallBoonAdvice`) voiced by the
   daemon being authored, not in product tone.
 - **Dialogue expansion v0.0.11** (`domain/calendar/`,
-  `domain/dialogue/`): per-archetype line corpus grew from ~12 to
-  **43-49 lines each** across all 10 archetypes (~455 per-archetype
-  + 13 shared `ANY`). Coverage: per-level transition openers
+  `domain/dialogue/`, `domain/UserPrefs.kt`): per-archetype line
+  corpus grew from ~12 to **56-62 lines each** across all 10
+  archetypes (~585 lines total — all holidays voiced per-archetype,
+  no shared ANY pool). Coverage: per-level transition openers
   (`AtLevelExactly` × 4 with `lifeEvent = true`), per-completion-count
   escalation (1st through 5th minor today), attention-loss reactive
   lines (`AttentionLostAtLeast` whitelisted to harsh archetypes;
   `AttentionLostAtLeastGentle` for soft ones), day-of-week markers
   (Monday / Friday / Weekend), early-morning + late-night variants
   shaped to a WFH schedule. New `HolidayCalendar` (Catalan defaults,
-  fixed dates + Gauss-Easter for Carnaval / Good Friday / Easter
-  Monday) returns a single `HolidayToken` per pick. The loaded six
-  (Sant Jordi, La Mercè, Sant Joan, Diada, Nadal, Cap d'Any) carry
-  per-archetype voicing; the lesser holidays (Reis, Carnaval, Pasqua,
-  Festa del Treball, Festa Major de Gràcia, Assumpció, Hispanitat,
-  Castanyada, Constitució, Immaculada, Sant Esteve, Cap d'Any Eve)
-  share an ANY pool. Birthday is opt-in via DataStore-backed
-  `UserPrefs` (MM-DD); personal dates via new `personal_date` Room
-  table with Settings list (add/delete). Personal-date lines carry
-  `{label}` and the repository's `renderLine` interpolates the user's
-  authored text. Backup format bumped v3 → v4 (additive — older
-  backups still load). DB schema v5 → v6 adds the table + two
+  fixed dates + Gauss-Easter for Carnaval / Divendres Sant / Pasqua)
+  returns a single `HolidayToken` per pick. **All 19 holidays carry
+  per-archetype voicing** — the originally-loaded six (Sant Jordi,
+  La Mercè, Sant Joan, Diada, Nadal, Cap d'Any) plus the 13 the
+  council had originally flagged as "lesser" but the user flagged as
+  important (Reis, Carnaval, Divendres Sant, Pasqua, Festa del
+  Treball, Festa Major de Gràcia, Assumpció, Hispanitat, Castanyada,
+  Constitució, Immaculada, Sant Esteve, Cap d'Any Eve). All
+  holiday lines are **secular in framing** even where the holiday's
+  origin is religious — `Divendres Sant` reads as "a quiet day, the
+  city pauses", `Reis` as "gift day", `Nadal` as family / winter, no
+  references to deity, prayer, or scripture in any line. **Location
+  is user-selectable** via a Settings dropdown backed by
+  `SupportedRegion` enum; v0.0.11 ships with `BARCELONA` as the only
+  valid value and `HolidayCalendar.tokenFor` returns null for any
+  other region. The dropdown surface makes the extension shape
+  visible without faking unsupported coverage. Birthday is opt-in
+  via `UserPrefs` (MM-DD); personal dates via new `personal_date`
+  Room table with Settings list (add/delete). Personal-date lines
+  carry `{label}` and the repository's `renderLine` interpolates the
+  user's authored text. Backup format bumped v3 → v4 (additive —
+  older backups still load). DB schema v5 → v6 adds the table + two
   `daemon_state` columns (`lastDecayAmount`, `lastDecayAt`) so
   attention-loss predicates can apply a 24h freshness window.
   `DialogueLintTest` gains three new asserts: holiday lines must use

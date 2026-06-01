@@ -11,16 +11,34 @@ import kotlinx.coroutines.flow.map
 private val Context.userPrefs by preferencesDataStore(name = "user_prefs")
 
 /**
- * Single-user identity prefs. Currently the daemon birthday in MM-DD
- * format (e.g. "04-23"). Stored as a string rather than two ints so the
- * "not set" case is just an absent key, no sentinel pair to remember.
+ * Supported regions for the holiday calendar. Only one value ships in
+ * v0.0.11 — the calendar is hardcoded to Catalan / Barcelona defaults.
+ * The enum + the UI dropdown make the location-driven shape of the
+ * calendar visible and leave a real extension point for later
+ * regions; today, picking anything else would surface no holidays at
+ * all, so the picker rejects it.
+ */
+enum class SupportedRegion(val key: String, val display: String) {
+    BARCELONA("BARCELONA", "Barcelona / Catalonia"),
+    ;
+    companion object {
+        val DEFAULT = BARCELONA
+        fun fromKey(key: String?): SupportedRegion = entries.firstOrNull { it.key == key } ?: DEFAULT
+    }
+}
+
+/**
+ * Single-user identity prefs. Stores the user's birthday (MM-DD
+ * string) and the active region for the holiday calendar.
  *
- * Region defaults to Catalonia/Barcelona — a region picker is planned
- * but not in this pass; HolidayCalendar uses Catalan defaults for now.
+ * Birthday is stored as a string rather than two ints so the
+ * "not set" case is just an absent key, no sentinel pair to remember.
+ * Region defaults to [SupportedRegion.DEFAULT].
  */
 class UserPrefs(private val context: Context) {
 
     private val birthdayKey = stringPreferencesKey("user_birthday_mmdd")
+    private val regionKey = stringPreferencesKey("user_region")
 
     /** "MM-DD" (e.g. "04-23") or null if unset. */
     val birthdayMonthDay: Flow<String?> = context.userPrefs.data
@@ -33,6 +51,16 @@ class UserPrefs(private val context: Context) {
             if (value == null) prefs.remove(birthdayKey)
             else prefs[birthdayKey] = value
         }
+    }
+
+    /** Active region. Defaults to [SupportedRegion.DEFAULT] when unset. */
+    val region: Flow<SupportedRegion> = context.userPrefs.data
+        .map { SupportedRegion.fromKey(it[regionKey]) }
+
+    suspend fun getRegion(): SupportedRegion = region.first()
+
+    suspend fun setRegion(value: SupportedRegion) {
+        context.userPrefs.edit { prefs -> prefs[regionKey] = value.key }
     }
 
     companion object {

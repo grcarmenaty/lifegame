@@ -1,13 +1,15 @@
 package com.grcarmenaty.lifegame.domain.calendar
 
+import com.grcarmenaty.lifegame.domain.SupportedRegion
 import java.util.Calendar
 import java.util.GregorianCalendar
 import java.util.TimeZone
 
 /**
  * Maps a local date to a single [HolidayToken], if any. Pure function —
- * no IO, no DAO reads. Region is hardcoded to Catalonia/Barcelona for
- * v0.0.11; a region dropdown is planned in a later pass.
+ * no IO, no DAO reads. Region selection is exposed for future
+ * expansion, but [SupportedRegion.BARCELONA] is the only valid value in
+ * v0.0.11; the Settings dropdown won't let the user pick anything else.
  *
  * Priority: BIRTHDAY > PERSONAL_DATE > loaded six > lesser. The caller
  * (PantheonRepository.buildContext) layers user-supplied dates over the
@@ -17,13 +19,20 @@ object HolidayCalendar {
 
     /**
      * Returns the cultural [HolidayToken] for the local date represented
-     * by [calendar], or null if no holiday matches. Caller must pre-set
-     * [calendar] to the desired local date (year/month/day-of-month).
+     * by [calendar] under [region], or null if no holiday matches.
+     * Caller must pre-set [calendar] to the desired local date.
      *
      * Does NOT return BIRTHDAY / PERSONAL_DATE — those are layered in by
      * the repository with higher priority.
      */
-    fun tokenFor(calendar: Calendar): HolidayToken? {
+    fun tokenFor(
+        calendar: Calendar,
+        region: SupportedRegion = SupportedRegion.DEFAULT,
+    ): HolidayToken? {
+        // Only Barcelona has a holiday set wired up in v0.0.11. Adding
+        // a region means: extend this switch with its calendar and let
+        // the Settings dropdown surface it.
+        if (region != SupportedRegion.BARCELONA) return null
         val month = calendar.get(Calendar.MONTH) + 1   // 1-12
         val day = calendar.get(Calendar.DAY_OF_MONTH)  // 1-31
         val year = calendar.get(Calendar.YEAR)

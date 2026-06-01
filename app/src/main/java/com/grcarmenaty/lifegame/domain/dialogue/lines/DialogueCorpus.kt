@@ -19,6 +19,5 @@ object DialogueCorpus {
         TherapistLines.all,
         CoachLines.all,
         HermitLines.all,
-        AnyLines.all,
     ).flatten()
 }

@@ -53,6 +53,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.BuildConfig
 import com.grcarmenaty.lifegame.data.entities.PersonalDate
 import com.grcarmenaty.lifegame.domain.PantheonRepository
+import com.grcarmenaty.lifegame.domain.SupportedRegion
 import com.grcarmenaty.lifegame.domain.UserPrefs
 import com.grcarmenaty.lifegame.domain.notify.NotificationPrefs
 import kotlinx.coroutines.Dispatchers
@@ -165,6 +166,7 @@ fun SettingsScreen(
             }
 
             Section(title = "Calendar") {
+                LocationCard()
                 BirthdayCard()
                 PersonalDatesCard(repository = repository)
             }
@@ -379,6 +381,65 @@ private fun NotificationSettingsCard() {
                 enabled = (startText.toIntOrNull() != null && endText.toIntOrNull() != null) &&
                     (startText.toInt() != quietStart || endText.toInt() != quietEnd),
             ) { Text("Save quiet hours") }
+        }
+    }
+}
+
+/**
+ * Location card. Drives the holiday calendar — the dialogue engine
+ * picks today's holiday token based on the selected region.
+ *
+ * v0.0.11 ships with Barcelona / Catalonia as the only valid value;
+ * the dropdown lists every entry of [SupportedRegion] so the
+ * extension shape is visible, but in practice that's a single row.
+ * Picking anything outside the enum is impossible by construction.
+ */
+@Composable
+private fun LocationCard() {
+    val context = LocalContext.current
+    val prefs = remember { UserPrefs(context) }
+    val scope = rememberCoroutineScope()
+    val current by prefs.region.collectAsState(initial = SupportedRegion.DEFAULT)
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Location",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "The daemons pick today's cultural calendar from here. " +
+                    "More regions are planned; only Barcelona is wired up for now.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            androidx.compose.foundation.layout.Box {
+                OutlinedButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(current.display) }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    SupportedRegion.entries.forEach { region ->
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(region.display) },
+                            onClick = {
+                                expanded = false
+                                scope.launch { prefs.setRegion(region) }
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }
