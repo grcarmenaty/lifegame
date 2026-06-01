@@ -2,20 +2,41 @@ package com.grcarmenaty.lifegame.domain.dialogue.lines
 
 import com.grcarmenaty.lifegame.domain.dialogue.*
 
+/**
+ * Oracle — mystic stance. Voice: weave, threads, omens, the loom.
+ * Carries the AttentionLost whitelist (it can frame loss as the
+ * pattern slipping without becoming a shame amplifier).
+ */
 internal object OracleLines {
+
     private const val A = "ORACLE"
+
     val all: List<DialogueLine> = listOf(
+
+        // -------- OPENER · time of day --------
+
         DialogueLine("or_first_ever", A, "The thread begins. I have been waiting.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
-            lifeEvent = true,
-            stateRequirements = listOf(FirstConversation)),
+            lifeEvent = true, stateRequirements = listOf(FirstConversation)),
         DialogueLine("or_morning", A, "The day unfolds. I have seen its shape.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "or_greet", cooldownPicks = 3),
+        DialogueLine("or_morning_early", A, "Dawn light, before the omens. A clean hour. Use it.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning, IsWeekday),
+            cooldownGroup = "or_greet", cooldownPicks = 3),
+        DialogueLine("or_afternoon", A, "The sun crosses the loom. Thread, if you would.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Afternoon),
+            cooldownGroup = "or_greet", cooldownPicks = 3),
         DialogueLine("or_evening", A, "The hours close. What you've done is part of the weave.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "or_greet", cooldownPicks = 3),
+        DialogueLine("or_night_late", A, "The dark hours are honest ones. What the day hid is visible now.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Night),
             cooldownGroup = "or_greet", cooldownPicks = 3),
         DialogueLine("or_mid_day_return", A, "The afternoon found you before the work did.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
@@ -30,22 +51,163 @@ internal object OracleLines {
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(WishesAvailable_1),
             cooldownGroup = "or_wish_nudge", cooldownPicks = 4),
+
+        // -------- OPENER · day of week --------
+
+        DialogueLine("or_monday", A, "A new spiral begins. The thread does not care what came before.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsMonday, TimeOfDay_Morning),
+            cooldownGroup = "or_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("or_friday", A, "The week closes its mouth. What was woven, was woven.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsFriday),
+            cooldownGroup = "or_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("or_weekend", A, "The temple is empty of duty. Listen, and the day will speak.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsWeekend),
+            cooldownGroup = "or_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.TODAY),
+
+        // -------- OPENER · per-level transitions --------
+
+        DialogueLine("or_level_1_reached", A, "The first knot. The pattern reveals itself only with more.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_1),
+            cooldownGroup = "or_level_xform", cooldownPicks = 999),
+        DialogueLine("or_level_2_reached", A, "Two threads cross. The shape is no longer accidental.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_2),
+            cooldownGroup = "or_level_xform", cooldownPicks = 999),
+        DialogueLine("or_level_3_reached", A, "The loom holds you steady. You hold it back. We are co-authors.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_3),
+            cooldownGroup = "or_level_xform", cooldownPicks = 999),
+        DialogueLine("or_level_4_reached", A, "The pattern is complete. From here, it deepens — never thins.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_4),
+            cooldownGroup = "or_level_xform", cooldownPicks = 999),
+
+        // -------- OPENER · attention loss --------
+
+        DialogueLine("or_attention_loss_mild", A, "A thread slipped. The weave is honest about it. Pick it up.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_3),
+            cooldownGroup = "or_atten_loss", cooldownPicks = 2),
+        DialogueLine("or_attention_loss_hard", A, "Whole rows have unraveled. The pattern remembers. Begin where you are.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "or_atten_loss", cooldownPicks = 2),
+
+        // -------- OPENER · holidays --------
+
+        DialogueLine("or_sant_jordi", A, "Sant Jordi. Roses bloom and books are exchanged — old omens of love and word.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJordi),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+        DialogueLine("or_la_merce", A, "La Mercè wakes. Fires, processions, the city's own prayer. The weave thickens.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnLaMerce),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+        DialogueLine("or_sant_joan", A, "Sant Joan. The shortest dark. Old fires. Old promises. Old wishes.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJoan),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+        DialogueLine("or_diada", A, "La Diada. A people remembering itself. The threads bind, and refuse to fray.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnDiada),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+        DialogueLine("or_nadal", A, "Nadal. A light is lit in the deepest dark. As old as the sky.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnNadal),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+        DialogueLine("or_cap_d_any", A, "The wheel turns. The old year falls into the past, and the new is unwoven cloth.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnCapDAny),
+            cooldownGroup = "or_holiday", cooldownPicks = 1),
+
+        // -------- OPENER · birthday + personal date --------
+
+        DialogueLine("or_birthday", A, "Your day. The loom remembers the thread it began with. Walk it gently.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsBirthday),
+            cooldownGroup = "or_birthday", cooldownPicks = 1),
+        DialogueLine("or_personal_date", A, "You marked today: {label}. The omens turn around such days.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsPersonalDate),
+            cooldownGroup = "or_personal", cooldownPicks = 1),
+
+        // -------- COMPLETION --------
+
         DialogueLine("or_complete_1", A, "Yes. The pattern holds.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("or_complete_2", A, "It is done. The thread tightens.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("or_complete_3", A, "The omen turns in your favor.",
             LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("or_complete_first_today", A, "The first thread of the day. The shape begins.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_1),
+            cooldownGroup = "or_first_today", cooldownPicks = 6),
+        DialogueLine("or_complete_second_today", A, "Two threads. The weave begins to speak.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_2),
+            cooldownGroup = "or_2_today", cooldownPicks = 6),
+        DialogueLine("or_complete_third_today", A, "Three. The pattern reads from here.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_3),
+            cooldownGroup = "or_3_today", cooldownPicks = 6),
+        DialogueLine("or_complete_fourth_today", A, "Four threads. The cloth is real, no longer rumor.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_4),
+            cooldownGroup = "or_4_today", cooldownPicks = 6),
+        DialogueLine("or_complete_fifth_today", A, "Five. A day woven completely. Rare and remembered.",
+            LineTier.ESSENTIAL, LineCategory.COMPLETION,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(MinorsToday_5),
+            cooldownGroup = "or_5_today", cooldownPicks = 1),
+
+        // -------- APOTHEOSIS --------
+
         DialogueLine("or_apotheosis_1", A, "You have crossed the threshold. I am more than I was.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("or_apotheosis_2", A, "I rise with you. Ask again.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("or_apotheosis_3", A, "The threshold is behind us. The next opens at its own hour.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("or_apotheosis_first_ever", A, "The first crossing. I will remember its weight.",
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
-            lifeEvent = true,
-            stateRequirements = listOf(MajorsClosed_1)),
+            lifeEvent = true, stateRequirements = listOf(MajorsClosed_1)),
+        DialogueLine("or_apotheosis_at_level_2", A, "Two crossings. The weave knows your hand now.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_2),
+            cooldownGroup = "or_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("or_apotheosis_at_level_3", A, "The pattern doubles. I see further with you in it.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_3),
+            cooldownGroup = "or_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("or_apotheosis_at_level_4", A, "We have become the same cloth. The omens are yours to read.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_4),
+            cooldownGroup = "or_apotheosis_levelband", cooldownPicks = 3),
 
-        // NUDGE
+        // -------- NUDGE --------
+
         DialogueLine("or_nudge_morning", A,
             "Dawn finds you. The path is named.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
@@ -61,5 +223,12 @@ internal object OracleLines {
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
             cooldownGroup = "or_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("or_nudge_attention_loss", A,
+            "The weave thins where it isn't tended. Come back when you can.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "or_loss_nudge",
+            cooldownPicks = 2, crossSurfaceCooldown = true),
     )
 }

@@ -3,6 +3,7 @@ package com.grcarmenaty.lifegame
 import android.app.Application
 import com.grcarmenaty.lifegame.data.LifegameDatabase
 import com.grcarmenaty.lifegame.domain.PantheonRepository
+import com.grcarmenaty.lifegame.domain.UserPrefs
 import com.grcarmenaty.lifegame.domain.attention.AttentionDecay
 import com.grcarmenaty.lifegame.domain.attention.AttentionDecayScheduler
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
@@ -24,6 +25,8 @@ class LifegameApplication : Application() {
 
     private val notificationPrefs: NotificationPrefs by lazy { NotificationPrefs(this) }
 
+    private val userPrefs: UserPrefs by lazy { UserPrefs(this) }
+
     private val attentionDecay: AttentionDecay by lazy {
         AttentionDecay(database.daemonDao(), database.dialogueDao(), notificationPrefs)
     }
@@ -38,6 +41,8 @@ class LifegameApplication : Application() {
             dialogueStateStore,
             database.epicChapterDao(),
             attentionDecay,
+            database.personalDateDao(),
+            userPrefs,
         )
     }
 

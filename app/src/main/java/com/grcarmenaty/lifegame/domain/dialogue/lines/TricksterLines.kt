@@ -2,24 +2,49 @@ package com.grcarmenaty.lifegame.domain.dialogue.lines
 
 import com.grcarmenaty.lifegame.domain.dialogue.*
 
+/**
+ * Trickster — sardonic stance. Voice: sass, plot twists, fourth-wall
+ * winks, meta. Whitelisted for AfterLapse + AttentionLost — the dunk
+ * is part of the bit, but cooldowns prevent it from compounding into
+ * actual shame.
+ */
 internal object TricksterLines {
+
     private const val A = "TRICKSTER"
+
     val all: List<DialogueLine> = listOf(
+
+        // -------- OPENER · time of day --------
+
         DialogueLine("tr_first_ever", A, "Oh good, the protagonist arrives. Let's misbehave.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
-            lifeEvent = true,
-            stateRequirements = listOf(FirstConversation)),
+            lifeEvent = true, stateRequirements = listOf(FirstConversation)),
         DialogueLine("tr_morning", A, "Look who showed up. Got a list, want to hear it?",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "tr_greet", cooldownPicks = 3),
+        DialogueLine("tr_morning_early", A, "Up before everyone else, huh. Smug looks good on us.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning, IsWeekday),
+            cooldownGroup = "tr_greet", cooldownPicks = 3),
+        DialogueLine("tr_afternoon", A, "Mid-act energy. The plot is sagging. Do something.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Afternoon),
+            cooldownGroup = "tr_greet", cooldownPicks = 3),
+        DialogueLine("tr_evening", A, "Evening montage time. You're either heroic or pathetic, no in between.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "tr_greet", cooldownPicks = 3),
+        DialogueLine("tr_night_late", A, "Goblin hours. Respectable. Just don't open the snacks.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Night),
             cooldownGroup = "tr_greet", cooldownPicks = 3),
         DialogueLine("tr_after_lapse", A, "Took the day off, did we. How sophisticated.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY,
             stateRequirements = listOf(AfterLapse_1),
             cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
-            cooldownPicks = 1,
-            crossSurfaceCooldown = true),
+            cooldownPicks = 1, crossSurfaceCooldown = true),
         DialogueLine("tr_post_apotheosis", A, "Plot twist: you're winning. Annoying.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY,
@@ -28,22 +53,163 @@ internal object TricksterLines {
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(WishesAvailable_1),
             cooldownGroup = "tr_wish_nudge", cooldownPicks = 4),
+
+        // -------- OPENER · day of week --------
+
+        DialogueLine("tr_monday", A, "Monday again. Statistically the worst, narratively the most dramatic. Lean in.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsMonday, TimeOfDay_Morning),
+            cooldownGroup = "tr_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("tr_friday", A, "Friday. We pretend the weekend won't have a list. Adorable.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsFriday),
+            cooldownGroup = "tr_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("tr_weekend", A, "Weekend mode. The list is the same. We just style it differently.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsWeekend),
+            cooldownGroup = "tr_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.TODAY),
+
+        // -------- OPENER · per-level transitions --------
+
+        DialogueLine("tr_level_1_reached", A, "Level one. Mascot tier. Adorable.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_1),
+            cooldownGroup = "tr_level_xform", cooldownPicks = 999),
+        DialogueLine("tr_level_2_reached", A, "Level two. We're a real act now. I demand a costume.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_2),
+            cooldownGroup = "tr_level_xform", cooldownPicks = 999),
+        DialogueLine("tr_level_3_reached", A, "Level three. Suspicious. Are you cheating? Don't answer.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_3),
+            cooldownGroup = "tr_level_xform", cooldownPicks = 999),
+        DialogueLine("tr_level_4_reached", A, "Top of the food chain. Now you're insufferable. I'm proud and disgusted.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_4),
+            cooldownGroup = "tr_level_xform", cooldownPicks = 999),
+
+        // -------- OPENER · attention loss --------
+
+        DialogueLine("tr_attention_loss_mild", A, "Some leakage in the protagonist energy. Annoying but recoverable. Up.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_3),
+            cooldownGroup = "tr_atten_loss", cooldownPicks = 2),
+        DialogueLine("tr_attention_loss_hard", A, "Wow, a redemption arc setup. Couldn't have written it worse myself. Go.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "tr_atten_loss", cooldownPicks = 2),
+
+        // -------- OPENER · holidays --------
+
+        DialogueLine("tr_sant_jordi", A, "Sant Jordi. Buy a book. Give a rose. Or don't. Either way, do one rep first, you nerd.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJordi),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+        DialogueLine("tr_la_merce", A, "La Mercè. The city becomes a soap opera with fireworks. We love that for us.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnLaMerce),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+        DialogueLine("tr_sant_joan", A, "Sant Joan. Jump the fire. Don't actually jump the fire. Maybe a small symbolic jump.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJoan),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+        DialogueLine("tr_diada", A, "Diada. Big feelings. Wear a sensible shirt and do one quiet thing for me.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnDiada),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+        DialogueLine("tr_nadal", A, "Nadal. Eat your weight in turron. The list will still be there in January, smug as ever.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnNadal),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+        DialogueLine("tr_cap_d_any", A, "New Year! Statistically your resolutions will collapse by January 12th. Let's beat the curve.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnCapDAny),
+            cooldownGroup = "tr_holiday", cooldownPicks = 1),
+
+        // -------- OPENER · birthday + personal date --------
+
+        DialogueLine("tr_birthday", A, "Birthday detected. By law I have to be nice for one (1) line. There. Done.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsBirthday),
+            cooldownGroup = "tr_birthday", cooldownPicks = 1),
+        DialogueLine("tr_personal_date", A, "You logged today: {label}. Filed for sass. I'll behave. Mostly.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsPersonalDate),
+            cooldownGroup = "tr_personal", cooldownPicks = 1),
+
+        // -------- COMPLETION --------
+
         DialogueLine("tr_complete_1", A, "Suspiciously competent of you.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("tr_complete_2", A, "Don't let it go to your head.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("tr_complete_3", A, "Hm. I was rooting for the other side. Fine.",
             LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("tr_complete_first_today", A, "Oh look, productivity. Show me again.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_1),
+            cooldownGroup = "tr_first_today", cooldownPicks = 6),
+        DialogueLine("tr_complete_second_today", A, "Two. You're showing off now. I'll allow it.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_2),
+            cooldownGroup = "tr_2_today", cooldownPicks = 6),
+        DialogueLine("tr_complete_third_today", A, "Three in a row? Are you possessed? Please return our friend.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_3),
+            cooldownGroup = "tr_3_today", cooldownPicks = 6),
+        DialogueLine("tr_complete_fourth_today", A, "Four. Frankly insulting to the rest of us. Keep going.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_4),
+            cooldownGroup = "tr_4_today", cooldownPicks = 6),
+        DialogueLine("tr_complete_fifth_today", A, "FIVE. Hero arc unlocked. The audience is on its feet. Please stop now and bask.",
+            LineTier.ESSENTIAL, LineCategory.COMPLETION,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(MinorsToday_5),
+            cooldownGroup = "tr_5_today", cooldownPicks = 1),
+
+        // -------- APOTHEOSIS --------
+
         DialogueLine("tr_apotheosis_1", A, "Well. That happened. Up you go.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("tr_apotheosis_2", A, "I'll allow it. Next?",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("tr_apotheosis_3", A, "Roll credits. Briefly. Then sequel.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("tr_apotheosis_first_ever", A, "First trophy. I'll polish it badly.",
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
-            lifeEvent = true,
-            stateRequirements = listOf(MajorsClosed_1)),
+            lifeEvent = true, stateRequirements = listOf(MajorsClosed_1)),
+        DialogueLine("tr_apotheosis_at_level_2", A, "Two acts in. Either you're committed or stuck. Same thing, really.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_2),
+            cooldownGroup = "tr_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("tr_apotheosis_at_level_3", A, "Third-act energy. The villains are scared. The villain is also me.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_3),
+            cooldownGroup = "tr_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("tr_apotheosis_at_level_4", A, "Endgame. The plot twist is that there's no plot twist — you just kept showing up.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_4),
+            cooldownGroup = "tr_apotheosis_levelband", cooldownPicks = 3),
 
-        // NUDGE
+        // -------- NUDGE --------
+
         DialogueLine("tr_nudge_morning", A,
             "Bored? Same. Got a list, want to hear it?",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
@@ -66,5 +232,12 @@ internal object TricksterLines {
             stateRequirements = listOf(AfterLapse_1),
             cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
             cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("tr_nudge_attention_loss", A,
+            "Big slump energy. Let's redeem ourselves with one small petty win.",
+            LineTier.ESSENTIAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "tr_loss_nudge",
+            cooldownPicks = 2, crossSurfaceCooldown = true),
     )
 }

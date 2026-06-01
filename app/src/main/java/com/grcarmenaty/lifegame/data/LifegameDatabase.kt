@@ -10,6 +10,7 @@ import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
 import com.grcarmenaty.lifegame.data.dao.DialogueDao
 import com.grcarmenaty.lifegame.data.dao.EpicChapterDao
+import com.grcarmenaty.lifegame.data.dao.PersonalDateDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.CooldownPlay
@@ -19,14 +20,15 @@ import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.LineSeen
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.data.entities.PersonalDate
 
 @Database(
     entities = [
         Daemon::class, MajorQuest::class, MinorQuest::class, Boon::class,
         LineSeen::class, CooldownPlay::class, DaemonState::class,
-        EpicChapter::class,
+        EpicChapter::class, PersonalDate::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -35,6 +37,7 @@ abstract class LifegameDatabase : RoomDatabase() {
     abstract fun boonDao(): BoonDao
     abstract fun dialogueDao(): DialogueDao
     abstract fun epicChapterDao(): EpicChapterDao
+    abstract fun personalDateDao(): PersonalDateDao
 
     companion object {
         @Volatile private var instance: LifegameDatabase? = null
@@ -46,7 +49,10 @@ abstract class LifegameDatabase : RoomDatabase() {
                     LifegameDatabase::class.java,
                     "lifegame.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                        MIGRATION_4_5, MIGRATION_5_6,
+                    )
                     .build()
                     .also { instance = it }
             }
@@ -287,6 +293,41 @@ internal val MIGRATION_4_5 = object : Migration(4, 5) {
             END
             """.trimIndent()
         )
+    }
+}
+
+/**
+ * v5 → v6: dialogue expansion (v0.0.11).
+ *
+ * Two changes, both purely additive — safe under SQLite `ALTER TABLE`:
+ *
+ *  1. New `personal_date` table. User-authored MM/DD records the
+ *     dialogue engine reads on every pick. Year-agnostic so a single
+ *     row covers the date every year.
+ *  2. Two columns on `daemon_state` for attention-loss reactive lines:
+ *     `lastDecayAmount` (points taken in the most recent decay tick,
+ *     0 if none) and `lastDecayAt` (when that tick happened). The
+ *     decay worker writes both; the predicate
+ *     [AttentionLostAtLeast] reads them and applies a 24h freshness
+ *     window. Decoupled from `lastAttentionUpdateAt` because that
+ *     field also moves on +attention (completions), and we need to
+ *     distinguish loss events specifically.
+ */
+internal val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `personal_date` (
+              `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              `label` TEXT NOT NULL,
+              `month` INTEGER NOT NULL,
+              `day` INTEGER NOT NULL,
+              `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `lastDecayAmount` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `daemon_state` ADD COLUMN `lastDecayAt` INTEGER")
     }
 }
 

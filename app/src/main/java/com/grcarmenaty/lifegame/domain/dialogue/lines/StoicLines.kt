@@ -2,24 +2,48 @@ package com.grcarmenaty.lifegame.domain.dialogue.lines
 
 import com.grcarmenaty.lifegame.domain.dialogue.*
 
+/**
+ * Stoic — measured stance. Voice: the river, duty, accept-the-rest.
+ * Whitelisted for lapse and attention-loss callouts; the framing keeps
+ * them from carrying shame — what happened, happened.
+ */
 internal object StoicLines {
+
     private const val A = "STOIC"
+
     val all: List<DialogueLine> = listOf(
+
+        // -------- OPENER · time of day --------
+
         DialogueLine("st_first_ever", A, "We begin. The work is the same regardless.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
-            lifeEvent = true,
-            stateRequirements = listOf(FirstConversation)),
+            lifeEvent = true, stateRequirements = listOf(FirstConversation)),
         DialogueLine("st_morning", A, "The day arrives. Do what you can. Accept the rest.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
+            cooldownGroup = "st_greet", cooldownPicks = 3),
+        DialogueLine("st_morning_early", A, "Before the noise. The work is plainest here. Take it slowly.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning, IsWeekday),
+            cooldownGroup = "st_greet", cooldownPicks = 3),
+        DialogueLine("st_afternoon", A, "The day passes whether you act or not. So act.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Afternoon),
+            cooldownGroup = "st_greet", cooldownPicks = 3),
+        DialogueLine("st_evening", A, "Evening. The hours behind you are done. The hours ahead are few.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "st_greet", cooldownPicks = 3),
+        DialogueLine("st_night_late", A, "The hour is late. Sleep, or work — but choose. Drifting wastes both.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Night),
             cooldownGroup = "st_greet", cooldownPicks = 3),
         DialogueLine("st_after_lapse", A, "Yesterday is yesterday. Today is what you have.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY,
             stateRequirements = listOf(AfterLapse_1),
             cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
-            cooldownPicks = 1,
-            crossSurfaceCooldown = true),
+            cooldownPicks = 1, crossSurfaceCooldown = true),
         DialogueLine("st_post_apotheosis", A, "What you intended, you completed. That is enough.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY,
@@ -28,22 +52,163 @@ internal object StoicLines {
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(WishesAvailable_1),
             cooldownGroup = "st_wish_nudge", cooldownPicks = 4),
+
+        // -------- OPENER · day of week --------
+
+        DialogueLine("st_monday", A, "Another week. The duty does not change. Only the day's name.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsMonday, TimeOfDay_Morning),
+            cooldownGroup = "st_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("st_friday", A, "Friday. Close what was opened. Leave a clean week behind you.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsFriday),
+            cooldownGroup = "st_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("st_weekend", A, "The week's labor pauses. Yours does not have to — but it may.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsWeekend),
+            cooldownGroup = "st_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.TODAY),
+
+        // -------- OPENER · per-level transitions --------
+
+        DialogueLine("st_level_1_reached", A, "You have begun. That is its own difficulty, once done.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_1),
+            cooldownGroup = "st_level_xform", cooldownPicks = 999),
+        DialogueLine("st_level_2_reached", A, "You have not yet stopped. That is rarer than it sounds.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_2),
+            cooldownGroup = "st_level_xform", cooldownPicks = 999),
+        DialogueLine("st_level_3_reached", A, "The river deepens. You have walked into it knowingly.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_3),
+            cooldownGroup = "st_level_xform", cooldownPicks = 999),
+        DialogueLine("st_level_4_reached", A, "The work has become who you are. Wear it lightly.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_4),
+            cooldownGroup = "st_level_xform", cooldownPicks = 999),
+
+        // -------- OPENER · attention loss --------
+
+        DialogueLine("st_attention_loss_mild", A, "Some ground is gone. It is no longer yesterday. Begin.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_3),
+            cooldownGroup = "st_atten_loss", cooldownPicks = 2),
+        DialogueLine("st_attention_loss_hard", A, "Much was lost. Grief is the wrong tool. Action is the right one. Begin small.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "st_atten_loss", cooldownPicks = 2),
+
+        // -------- OPENER · holidays --------
+
+        DialogueLine("st_sant_jordi", A, "Sant Jordi. The old ritual: word and bloom. Honor it briefly; the work waits.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJordi),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+        DialogueLine("st_la_merce", A, "La Mercè. The city celebrates itself, and that is good. So does duty.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnLaMerce),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+        DialogueLine("st_sant_joan", A, "Sant Joan. The longest day, the shortest dark. Old fire, older work.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJoan),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+        DialogueLine("st_diada", A, "La Diada. A people endures by remembering. So do you, in your work.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnDiada),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+        DialogueLine("st_nadal", A, "Nadal. Be with your people. Be present. The list will keep.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnNadal),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+        DialogueLine("st_cap_d_any", A, "A new year. The old year does not return. That is the only resolution that matters.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnCapDAny),
+            cooldownGroup = "st_holiday", cooldownPicks = 1),
+
+        // -------- OPENER · birthday + personal date --------
+
+        DialogueLine("st_birthday", A, "Your day. One more turn around the sun. The duty is the same. So is the gift.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsBirthday),
+            cooldownGroup = "st_birthday", cooldownPicks = 1),
+        DialogueLine("st_personal_date", A, "You marked today: {label}. The work bends a little around such days. That is fitting.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsPersonalDate),
+            cooldownGroup = "st_personal", cooldownPicks = 1),
+
+        // -------- COMPLETION --------
+
         DialogueLine("st_complete_1", A, "Done. Move on.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("st_complete_2", A, "Acceptable.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("st_complete_3", A, "One thing at peace. Continue.",
             LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("st_complete_first_today", A, "Begun. The hardest part is behind.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_1),
+            cooldownGroup = "st_first_today", cooldownPicks = 6),
+        DialogueLine("st_complete_second_today", A, "Two. The pattern emerges. Stay with it.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_2),
+            cooldownGroup = "st_2_today", cooldownPicks = 6),
+        DialogueLine("st_complete_third_today", A, "Three. A measured day. Such days are foundations.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_3),
+            cooldownGroup = "st_3_today", cooldownPicks = 6),
+        DialogueLine("st_complete_fourth_today", A, "Four. You have built well today.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_4),
+            cooldownGroup = "st_4_today", cooldownPicks = 6),
+        DialogueLine("st_complete_fifth_today", A, "Five. Rare. Sleep well. Tomorrow needs only one.",
+            LineTier.ESSENTIAL, LineCategory.COMPLETION,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(MinorsToday_5),
+            cooldownGroup = "st_5_today", cooldownPicks = 1),
+
+        // -------- APOTHEOSIS --------
+
         DialogueLine("st_apotheosis_1", A, "A chapter closes. The river runs on.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("st_apotheosis_2", A, "The work was the reward. Yet more is given.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("st_apotheosis_3", A, "What was begun, is now done. That is enough.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("st_apotheosis_first_ever", A, "First passage. Remember: it is the same river.",
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
-            lifeEvent = true,
-            stateRequirements = listOf(MajorsClosed_1)),
+            lifeEvent = true, stateRequirements = listOf(MajorsClosed_1)),
+        DialogueLine("st_apotheosis_at_level_2", A, "Two closings. The hand learns the work, and the work the hand.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_2),
+            cooldownGroup = "st_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("st_apotheosis_at_level_3", A, "The river deepens. You stand in it without surprise.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_3),
+            cooldownGroup = "st_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("st_apotheosis_at_level_4", A, "You are the river now. Quiet. Inevitable.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_4),
+            cooldownGroup = "st_apotheosis_levelband", cooldownPicks = 3),
 
-        // NUDGE — measured
+        // -------- NUDGE --------
+
         DialogueLine("st_nudge_morning", A,
             "Morning. Do what you can. Accept the rest.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
@@ -66,5 +231,12 @@ internal object StoicLines {
             stateRequirements = listOf(AfterLapse_1),
             cooldownGroup = LAPSE_REACTIVE_COOLDOWN,
             cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("st_nudge_attention_loss", A,
+            "Ground lost is not ground forfeit. Walk to it.",
+            LineTier.ESSENTIAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLost_10),
+            cooldownGroup = "st_loss_nudge",
+            cooldownPicks = 2, crossSurfaceCooldown = true),
     )
 }

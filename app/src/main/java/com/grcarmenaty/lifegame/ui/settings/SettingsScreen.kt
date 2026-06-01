@@ -51,7 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.BuildConfig
+import com.grcarmenaty.lifegame.data.entities.PersonalDate
 import com.grcarmenaty.lifegame.domain.PantheonRepository
+import com.grcarmenaty.lifegame.domain.UserPrefs
 import com.grcarmenaty.lifegame.domain.notify.NotificationPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -162,6 +164,11 @@ fun SettingsScreen(
                 NotificationSettingsCard()
             }
 
+            Section(title = "Calendar") {
+                BirthdayCard()
+                PersonalDatesCard(repository = repository)
+            }
+
             Section(title = "Danger") {
                 ActionCard(
                     title = "Reset pantheon",
@@ -176,7 +183,7 @@ fun SettingsScreen(
             }
 
             Text(
-                text = "lifegame v$appVersion · backup format v1",
+                text = "Personae v$appVersion · backup format v4",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -379,4 +386,184 @@ private fun NotificationSettingsCard() {
 private fun defaultExportFilename(): String {
     val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     return "lifegame-export-$date.json"
+}
+
+/**
+ * Birthday card. Stores a single MM-DD string in [UserPrefs]. The
+ * dialogue engine reads it on every pick to decide if today is the
+ * user's birthday; lines per archetype react accordingly.
+ */
+@Composable
+private fun BirthdayCard() {
+    val context = LocalContext.current
+    val prefs = remember { UserPrefs(context) }
+    val scope = rememberCoroutineScope()
+    val current by prefs.birthdayMonthDay.collectAsState(initial = null)
+
+    var monthText by rememberSaveable(current) {
+        mutableStateOf(current?.split("-")?.getOrNull(0).orEmpty())
+    }
+    var dayText by rememberSaveable(current) {
+        mutableStateOf(current?.split("-")?.getOrNull(1).orEmpty())
+    }
+
+    val pending = run {
+        val m = monthText.toIntOrNull()
+        val d = dayText.toIntOrNull()
+        if (m != null && d != null) "%02d-%02d".format(m, d) else null
+    }
+    val pendingValid = pending != null && UserPrefs.isValidMmDd(pending)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Your birthday",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Daemons will recognize the day in their own voice. " +
+                    "Month and day only — the year stays yours.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = monthText,
+                    onValueChange = { v -> monthText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Month (1-12)") },
+                )
+                OutlinedTextField(
+                    value = dayText,
+                    onValueChange = { v -> dayText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Day (1-31)") },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        if (pendingValid) {
+                            scope.launch { prefs.setBirthdayMonthDay(pending) }
+                        }
+                    },
+                    enabled = pendingValid && pending != current,
+                    modifier = Modifier.weight(1f),
+                ) { Text(if (current == null) "Save" else "Update") }
+                if (current != null) {
+                    OutlinedButton(
+                        onClick = { scope.launch { prefs.setBirthdayMonthDay(null) } },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Clear") }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Personal-dates card. Lets the user add MM-DD records with a label;
+ * the dialogue engine matches today's date and picks a per-archetype
+ * personal-date line that interpolates the label.
+ */
+@Composable
+private fun PersonalDatesCard(repository: PantheonRepository) {
+    val scope = rememberCoroutineScope()
+    val dates by repository.observePersonalDates()
+        .collectAsState(initial = emptyList<PersonalDate>())
+
+    var label by rememberSaveable { mutableStateOf("") }
+    var monthText by rememberSaveable { mutableStateOf("") }
+    var dayText by rememberSaveable { mutableStateOf("") }
+
+    val canAdd = label.isNotBlank() &&
+        (monthText.toIntOrNull() in 1..12) &&
+        (dayText.toIntOrNull() in 1..31)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Personal dates",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Anniversaries, remembrance days, recurring deadlines. " +
+                    "Daemons will speak your label back to you when the day comes.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it.take(64) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Label") },
+                placeholder = { Text("e.g. our anniversary, mum's day, deadline") },
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = monthText,
+                    onValueChange = { v -> monthText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Month") },
+                )
+                OutlinedTextField(
+                    value = dayText,
+                    onValueChange = { v -> dayText = v.filter { it.isDigit() }.take(2) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Day") },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    val m = monthText.toIntOrNull() ?: return@Button
+                    val d = dayText.toIntOrNull() ?: return@Button
+                    scope.launch {
+                        repository.addPersonalDate(label.trim(), m, d)
+                        label = ""
+                        monthText = ""
+                        dayText = ""
+                    }
+                },
+                enabled = canAdd,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Add date") }
+
+            if (dates.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                dates.forEach { entry ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "%02d-%02d".format(entry.month, entry.day),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(entry.label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        TextButton(onClick = {
+                            scope.launch { repository.deletePersonalDate(entry.id) }
+                        }) { Text("Remove") }
+                    }
+                }
+            }
+        }
+    }
 }

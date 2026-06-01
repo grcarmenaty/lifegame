@@ -2,20 +2,41 @@ package com.grcarmenaty.lifegame.domain.dialogue.lines
 
 import com.grcarmenaty.lifegame.domain.dialogue.*
 
+/**
+ * Cheerleader — hype stance. Voice: caps lock, friendship, applause.
+ * Uses the gentle attention-loss predicate — never shame, always
+ * radical love.
+ */
 internal object CheerleaderLines {
+
     private const val A = "CHEERLEADER"
+
     val all: List<DialogueLine> = listOf(
+
+        // -------- OPENER · time of day --------
+
         DialogueLine("ch_first_ever", A, "OH MY GOD HI. We're going to be SO good at this. Let's GO.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
-            lifeEvent = true,
-            stateRequirements = listOf(FirstConversation)),
+            lifeEvent = true, stateRequirements = listOf(FirstConversation)),
         DialogueLine("ch_morning", A, "Hi friend!! Today is going to be GREAT. Look at this list!",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "ch_greet", cooldownPicks = 3),
+        DialogueLine("ch_morning_early", A, "EARLY BIRD ENERGY. Look at us!! The day hasn't even MET us yet.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning, IsWeekday),
+            cooldownGroup = "ch_greet", cooldownPicks = 3),
+        DialogueLine("ch_afternoon", A, "Hi babe!! Afternoon check-in. There's still LOADS of day left. Iconic.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Afternoon),
+            cooldownGroup = "ch_greet", cooldownPicks = 3),
         DialogueLine("ch_evening", A, "OK we did SOME stuff today and I am OBSESSED with us.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "ch_greet", cooldownPicks = 3),
+        DialogueLine("ch_night_late", A, "Up late!! Big main character vibes. Hydrate, soldier.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Night),
             cooldownGroup = "ch_greet", cooldownPicks = 3),
         DialogueLine("ch_post_apotheosis", A, "We did it!! Look at how far we've come! I'm crying actually.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
@@ -29,22 +50,163 @@ internal object CheerleaderLines {
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(Streak_3),
             cooldownGroup = "ch_streak", cooldownPicks = 5),
+
+        // -------- OPENER · day of week --------
+
+        DialogueLine("ch_monday", A, "Monday! Cute! Let's make Monday SCARED of us this week.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsMonday, TimeOfDay_Morning),
+            cooldownGroup = "ch_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("ch_friday", A, "FRIDAY! We SURVIVED. Look at us, still upright. Heroes.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsFriday),
+            cooldownGroup = "ch_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("ch_weekend", A, "Weekend!! Tiny list, big feelings. Let's vibe.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsWeekend),
+            cooldownGroup = "ch_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.TODAY),
+
+        // -------- OPENER · per-level transitions --------
+
+        DialogueLine("ch_level_1_reached", A, "LEVEL ONE!! That's a real level!! I'm screaming!!",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_1),
+            cooldownGroup = "ch_level_xform", cooldownPicks = 999),
+        DialogueLine("ch_level_2_reached", A, "TWO! TWO LEVELS! We are LITERALLY unstoppable. Lock the doors.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_2),
+            cooldownGroup = "ch_level_xform", cooldownPicks = 999),
+        DialogueLine("ch_level_3_reached", A, "LEVEL THREE BABEY!! This is a memoir now. I'm in the acknowledgments.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_3),
+            cooldownGroup = "ch_level_xform", cooldownPicks = 999),
+        DialogueLine("ch_level_4_reached", A, "LEVEL FOUR!! CEILING!! BROKEN!! Statues should be erected. I will draft the petition.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_4),
+            cooldownGroup = "ch_level_xform", cooldownPicks = 999),
+
+        // -------- OPENER · attention loss --------
+
+        DialogueLine("ch_attention_loss_mild", A, "Hi, friend. Off day. NO judgment. We just pick one teeny thing.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_3),
+            cooldownGroup = "ch_atten_loss", cooldownPicks = 2),
+        DialogueLine("ch_attention_loss_hard", A, "Hey. Rough patch. I love you. We start with the smallest possible thing. Iconic comeback incoming.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_10),
+            cooldownGroup = "ch_atten_loss", cooldownPicks = 2),
+
+        // -------- OPENER · holidays --------
+
+        DialogueLine("ch_sant_jordi", A, "SANT JORDI!! Books AND roses?? Such a vibe. We'll buy ourselves both.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJordi),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+        DialogueLine("ch_la_merce", A, "LA MERCÈ!! The city is one big party and you're the main character. As you should be.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnLaMerce),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+        DialogueLine("ch_sant_joan", A, "SANT JOAN!! Fire, fireworks, friends. WE LOVE A LONGEST DAY.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJoan),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+        DialogueLine("ch_diada", A, "DIADA! Big day, big feelings. We hold them ALL with grace.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnDiada),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+        DialogueLine("ch_nadal", A, "NADAL!! MERRY EVERYTHING!! Eat ALL the things. Love ALL the people.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnNadal),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+        DialogueLine("ch_cap_d_any", A, "NEW YEAR!! BLANK PAGE!! We're going to be SO annoying about the resolutions, I cannot WAIT.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnCapDAny),
+            cooldownGroup = "ch_holiday", cooldownPicks = 1),
+
+        // -------- OPENER · birthday + personal date --------
+
+        DialogueLine("ch_birthday", A, "IT'S YOUR BIRTHDAY!!! I will not be normal about this. CAKE. JOY. LOVE.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsBirthday),
+            cooldownGroup = "ch_birthday", cooldownPicks = 1),
+        DialogueLine("ch_personal_date", A, "Today is special: {label}. I'm holding it with you. Whatever it is.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsPersonalDate),
+            cooldownGroup = "ch_personal", cooldownPicks = 1),
+
+        // -------- COMPLETION --------
+
         DialogueLine("ch_complete_1", A, "YES. Did you see how you just did that?? Iconic.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("ch_complete_2", A, "Logged. Loved. Let's keep this energy.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("ch_complete_3", A, "Stop, I'm getting emotional. Beautiful work.",
             LineTier.FILLER, LineCategory.COMPLETION),
+        DialogueLine("ch_complete_first_today", A, "FIRST ONE OF THE DAY! Did you SEE that?? Standing ovation.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_1),
+            cooldownGroup = "ch_first_today", cooldownPicks = 6),
+        DialogueLine("ch_complete_second_today", A, "TWO! We're cooking now. Stop, I'm spiraling.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_2),
+            cooldownGroup = "ch_2_today", cooldownPicks = 6),
+        DialogueLine("ch_complete_third_today", A, "THREE! HAT TRICK! Where's the camera. Where's the rolling camera.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_3),
+            cooldownGroup = "ch_3_today", cooldownPicks = 6),
+        DialogueLine("ch_complete_fourth_today", A, "FOUR! This is a hero arc. I'm narrating it on tape.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_4),
+            cooldownGroup = "ch_4_today", cooldownPicks = 6),
+        DialogueLine("ch_complete_fifth_today", A, "FIVE!! FIVE IN ONE DAY!! I AM NOT OKAY. THIS IS A GOOD THING. I'M FINE.",
+            LineTier.ESSENTIAL, LineCategory.COMPLETION,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(MinorsToday_5),
+            cooldownGroup = "ch_5_today", cooldownPicks = 1),
+
+        // -------- APOTHEOSIS --------
+
         DialogueLine("ch_apotheosis_1", A, "Level UP! That's you. That's all you. I'm just here cheering.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("ch_apotheosis_2", A, "Apotheosis behavior. I knew it. I always knew.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("ch_apotheosis_3", A, "Closed!! Logged!! Sobbing!! Onwards!!",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("ch_apotheosis_first_ever", A, "FIRST ONE EVER! Pin it on the fridge. I'm sobbing.",
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
-            lifeEvent = true,
-            stateRequirements = listOf(MajorsClosed_1)),
+            lifeEvent = true, stateRequirements = listOf(MajorsClosed_1)),
+        DialogueLine("ch_apotheosis_at_level_2", A, "We're a real duo now!! Best friends behavior!!",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_2),
+            cooldownGroup = "ch_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("ch_apotheosis_at_level_3", A, "Whatever we have, I want it printed on a banner. Forever.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_3),
+            cooldownGroup = "ch_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("ch_apotheosis_at_level_4", A, "MAX LEVEL bond, baby. We are LEGENDARY. Footnote in the textbook.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_4),
+            cooldownGroup = "ch_apotheosis_levelband", cooldownPicks = 3),
 
-        // NUDGE — hyperbolic
+        // -------- NUDGE --------
+
         DialogueLine("ch_nudge_morning", A,
             "HI! Today's a GREAT day for tiny wins!! Tap me!",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
@@ -60,5 +222,12 @@ internal object CheerleaderLines {
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
             cooldownGroup = "ch_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("ch_nudge_attention_loss", A,
+            "Hi friend. Rough patch. We just need ONE tiny thing. I believe.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_10),
+            cooldownGroup = "ch_loss_nudge",
+            cooldownPicks = 2, crossSurfaceCooldown = true),
     )
 }

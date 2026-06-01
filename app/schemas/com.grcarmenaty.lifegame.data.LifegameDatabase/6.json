@@ -1,0 +1,703 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 6,
+    "identityHash": "2d19a1b1ba1f47075b0223d66cecb82f",
+    "entities": [
+      {
+        "tableName": "daemons",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `archetype` TEXT NOT NULL, `voicePreset` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archetype",
+            "columnName": "archetype",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "voicePreset",
+            "columnName": "voicePreset",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "major_quests",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `daemonId` INTEGER NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `thresholdCount` INTEGER NOT NULL, `progressCount` INTEGER NOT NULL, `completed` INTEGER NOT NULL, `wishBoonId` INTEGER, `wishRewardCount` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`wishBoonId`) REFERENCES `boons`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "thresholdCount",
+            "columnName": "thresholdCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "progressCount",
+            "columnName": "progressCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wishBoonId",
+            "columnName": "wishBoonId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "wishRewardCount",
+            "columnName": "wishRewardCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_major_quests_daemonId",
+            "unique": false,
+            "columnNames": [
+              "daemonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_major_quests_daemonId` ON `${TABLE_NAME}` (`daemonId`)"
+          },
+          {
+            "name": "index_major_quests_wishBoonId",
+            "unique": false,
+            "columnNames": [
+              "wishBoonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_major_quests_wishBoonId` ON `${TABLE_NAME}` (`wishBoonId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "boons",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "wishBoonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "minor_quests",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `majorQuestId` INTEGER NOT NULL, `title` TEXT NOT NULL, `cadence` TEXT NOT NULL, `weight` INTEGER NOT NULL, `completed` INTEGER NOT NULL, `lastCompletedAt` INTEGER, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`majorQuestId`) REFERENCES `major_quests`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "majorQuestId",
+            "columnName": "majorQuestId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cadence",
+            "columnName": "cadence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weight",
+            "columnName": "weight",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastCompletedAt",
+            "columnName": "lastCompletedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_minor_quests_majorQuestId",
+            "unique": false,
+            "columnNames": [
+              "majorQuestId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_minor_quests_majorQuestId` ON `${TABLE_NAME}` (`majorQuestId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "major_quests",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "majorQuestId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "boons",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `daemonId` INTEGER NOT NULL, `text` TEXT NOT NULL, `count` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "count",
+            "columnName": "count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_boons_daemonId",
+            "unique": false,
+            "columnNames": [
+              "daemonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_boons_daemonId` ON `${TABLE_NAME}` (`daemonId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "line_seen",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`daemonId` INTEGER NOT NULL, `lineId` TEXT NOT NULL, `lastPlayedAt` INTEGER NOT NULL, `playCount` INTEGER NOT NULL, PRIMARY KEY(`daemonId`, `lineId`), FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineId",
+            "columnName": "lineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPlayedAt",
+            "columnName": "lastPlayedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playCount",
+            "columnName": "playCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "daemonId",
+            "lineId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_line_seen_daemonId",
+            "unique": false,
+            "columnNames": [
+              "daemonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_line_seen_daemonId` ON `${TABLE_NAME}` (`daemonId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "cooldown_play",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`daemonId` INTEGER NOT NULL, `cooldownGroup` TEXT NOT NULL, `surface` TEXT NOT NULL, `expiresAtPicks` INTEGER NOT NULL, PRIMARY KEY(`daemonId`, `cooldownGroup`, `surface`), FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cooldownGroup",
+            "columnName": "cooldownGroup",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surface",
+            "columnName": "surface",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAtPicks",
+            "columnName": "expiresAtPicks",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "daemonId",
+            "cooldownGroup",
+            "surface"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_cooldown_play_daemonId",
+            "unique": false,
+            "columnNames": [
+              "daemonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_cooldown_play_daemonId` ON `${TABLE_NAME}` (`daemonId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "daemon_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`daemonId` INTEGER NOT NULL, `lastConversationAt` INTEGER, `firstConversationAt` INTEGER, `conversationsHad` INTEGER NOT NULL, `majorsClosedTotal` INTEGER NOT NULL, `wishesSpentTotal` INTEGER NOT NULL, `screenOpenCount` INTEGER NOT NULL, `lastScreenOpenAt` INTEGER, `notificationsEnabled` INTEGER NOT NULL, `lastNudgeAt` INTEGER, `attentionPoints` INTEGER NOT NULL, `lastAttentionUpdateAt` INTEGER, `attentionDecayPerDay` INTEGER, `attentionDecayGraceDays` INTEGER, `decayDisabled` INTEGER NOT NULL, `minorsCompletedSinceAccrual` INTEGER NOT NULL, `minorsPerBoonAccrual` INTEGER, `lastSeenLevel` INTEGER NOT NULL, `lastDecayAmount` INTEGER NOT NULL, `lastDecayAt` INTEGER, PRIMARY KEY(`daemonId`), FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastConversationAt",
+            "columnName": "lastConversationAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "firstConversationAt",
+            "columnName": "firstConversationAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "conversationsHad",
+            "columnName": "conversationsHad",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "majorsClosedTotal",
+            "columnName": "majorsClosedTotal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wishesSpentTotal",
+            "columnName": "wishesSpentTotal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "screenOpenCount",
+            "columnName": "screenOpenCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastScreenOpenAt",
+            "columnName": "lastScreenOpenAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "notificationsEnabled",
+            "columnName": "notificationsEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastNudgeAt",
+            "columnName": "lastNudgeAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "attentionPoints",
+            "columnName": "attentionPoints",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAttentionUpdateAt",
+            "columnName": "lastAttentionUpdateAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "attentionDecayPerDay",
+            "columnName": "attentionDecayPerDay",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "attentionDecayGraceDays",
+            "columnName": "attentionDecayGraceDays",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "decayDisabled",
+            "columnName": "decayDisabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minorsCompletedSinceAccrual",
+            "columnName": "minorsCompletedSinceAccrual",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minorsPerBoonAccrual",
+            "columnName": "minorsPerBoonAccrual",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "lastSeenLevel",
+            "columnName": "lastSeenLevel",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastDecayAmount",
+            "columnName": "lastDecayAmount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastDecayAt",
+            "columnName": "lastDecayAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "daemonId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "epic_chapter",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `daemonId` INTEGER NOT NULL, `position` INTEGER NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`daemonId`) REFERENCES `daemons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daemonId",
+            "columnName": "daemonId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_epic_chapter_daemonId",
+            "unique": false,
+            "columnNames": [
+              "daemonId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_epic_chapter_daemonId` ON `${TABLE_NAME}` (`daemonId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daemons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daemonId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "personal_date",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `label` TEXT NOT NULL, `month` INTEGER NOT NULL, `day` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "month",
+            "columnName": "month",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "day",
+            "columnName": "day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2d19a1b1ba1f47075b0223d66cecb82f')"
+    ]
+  }
+}

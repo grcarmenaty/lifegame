@@ -1,5 +1,8 @@
 package com.grcarmenaty.lifegame.domain.dialogue
 
+import com.grcarmenaty.lifegame.domain.calendar.HolidayToken
+import java.util.Calendar
+
 /**
  * Engine-checkable gate. Implementations are `object` singletons (or
  * top-level interned `val` instances for parameterized variants) per the
@@ -53,7 +56,9 @@ class MinorsCompletedTodayAtLeast(private val n: Int) : Predicate {
         ctx.minorsCompletedToday >= n
 }
 val MinorsToday_1 = MinorsCompletedTodayAtLeast(1)
+val MinorsToday_2 = MinorsCompletedTodayAtLeast(2)
 val MinorsToday_3 = MinorsCompletedTodayAtLeast(3)
+val MinorsToday_4 = MinorsCompletedTodayAtLeast(4)
 val MinorsToday_5 = MinorsCompletedTodayAtLeast(5)
 
 class StreakAtLeast(private val days: Int) : Predicate {
@@ -72,7 +77,12 @@ val WishesAvailable_1 = WithWishesAvailable(1)
 class AtLevelAtLeast(private val n: Int) : Predicate {
     override fun isSatisfied(ctx: ConversationContext) = ctx.level >= n
 }
+val Level_1 = AtLevelAtLeast(1)
 val Level_2 = AtLevelAtLeast(2)
+val Level_3 = AtLevelAtLeast(3)
+val Level_4 = AtLevelAtLeast(4)
+// Legacy interns kept so older lines compile during the v0.0.11
+// expansion; new content should prefer the Level_1..Level_4 set.
 val Level_5 = AtLevelAtLeast(5)
 val Level_10 = AtLevelAtLeast(10)
 
@@ -135,3 +145,110 @@ class WishesSpentAtLeast(private val n: Int) : Predicate {
 }
 val WishesSpent_1 = WishesSpentAtLeast(1)
 val WishesSpent_5 = WishesSpentAtLeast(5)
+
+// ---- v0.0.11 calendar predicates ----
+
+/**
+ * Fires when today's resolved [HolidayToken] equals [token]. The
+ * resolution priority (birthday > personal > cultural) is handled
+ * upstream in the repository's `buildContext`; the predicate just
+ * matches the single token that survived.
+ */
+class OnHoliday(private val token: HolidayToken) : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) = ctx.holidayToken == token
+}
+val OnSantJordi = OnHoliday(HolidayToken.SANT_JORDI)
+val OnLaMerce = OnHoliday(HolidayToken.LA_MERCE)
+val OnSantJoan = OnHoliday(HolidayToken.SANT_JOAN)
+val OnDiada = OnHoliday(HolidayToken.DIADA)
+val OnNadal = OnHoliday(HolidayToken.NADAL)
+val OnCapDAny = OnHoliday(HolidayToken.CAP_D_ANY)
+val OnReis = OnHoliday(HolidayToken.REIS)
+val OnCarnaval = OnHoliday(HolidayToken.CARNAVAL)
+val OnDivendresSant = OnHoliday(HolidayToken.DIVENDRES_SANT)
+val OnPasqua = OnHoliday(HolidayToken.PASQUA)
+val OnFestaDelTreball = OnHoliday(HolidayToken.FESTA_DEL_TREBALL)
+val OnFestaMajorGracia = OnHoliday(HolidayToken.FESTA_MAJOR_GRACIA)
+val OnAssumpcio = OnHoliday(HolidayToken.ASSUMPCIO)
+val OnHispanitat = OnHoliday(HolidayToken.HISPANITAT)
+val OnCastanyada = OnHoliday(HolidayToken.CASTANYADA)
+val OnConstitucio = OnHoliday(HolidayToken.CONSTITUCIO)
+val OnImmaculada = OnHoliday(HolidayToken.IMMACULADA)
+val OnSantEsteve = OnHoliday(HolidayToken.SANT_ESTEVE)
+val OnCapDAnyEve = OnHoliday(HolidayToken.CAP_D_ANY_EVE)
+val IsBirthday = OnHoliday(HolidayToken.BIRTHDAY)
+val IsPersonalDate = OnHoliday(HolidayToken.PERSONAL_DATE)
+
+// ---- v0.0.11 day-of-week predicates ----
+
+/**
+ * Day-of-week predicate. [Calendar.DAY_OF_WEEK] semantics: SUNDAY=1,
+ * MONDAY=2, ..., SATURDAY=7.
+ */
+class DayOfWeekIs(private val dow: Int) : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) = ctx.dayOfWeek == dow
+}
+val IsMonday = DayOfWeekIs(Calendar.MONDAY)
+val IsFriday = DayOfWeekIs(Calendar.FRIDAY)
+val IsSaturday = DayOfWeekIs(Calendar.SATURDAY)
+val IsSunday = DayOfWeekIs(Calendar.SUNDAY)
+
+object IsWeekend : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.dayOfWeek == Calendar.SATURDAY || ctx.dayOfWeek == Calendar.SUNDAY
+}
+
+object IsWeekday : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.dayOfWeek in Calendar.MONDAY..Calendar.FRIDAY
+}
+
+// ---- v0.0.11 level-exact predicates (transition gating) ----
+
+/**
+ * Exact-level match. Used for level-transition openers paired with
+ * `lifeEvent = true` so they play once when the daemon hits that level.
+ * Distinct from [AtLevelAtLeast], which keeps firing while ≥ N.
+ */
+class AtLevelExactly(private val n: Int) : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) = ctx.level == n
+}
+val LevelExactly_0 = AtLevelExactly(0)
+val LevelExactly_1 = AtLevelExactly(1)
+val LevelExactly_2 = AtLevelExactly(2)
+val LevelExactly_3 = AtLevelExactly(3)
+val LevelExactly_4 = AtLevelExactly(4)
+
+// ---- v0.0.11 attention-loss predicates ----
+
+/**
+ * Fires when the daemon lost at least [n] attention points in the most
+ * recent decay tick AND that tick happened within the last 24h. Used
+ * by reactive lines that acknowledge the loss in the daemon's voice
+ * instead of letting the bar drop silently.
+ *
+ * Whitelisted to archetypes that can carry the weight without becoming
+ * shame-amplifiers (Drill Sergeant / Coach / Trickster / Stoic / Oracle).
+ * Gentle Mentor / Therapist / Hermit have their own milder variants
+ * that read attentionLost24h directly via a separate predicate.
+ */
+class AttentionLostAtLeast(private val n: Int) : Predicate {
+    override val archetypeWhitelist = setOf(
+        "DRILL_SERGEANT", "COACH", "TRICKSTER", "STOIC", "ORACLE",
+    )
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.attentionLost24h >= n
+}
+val AttentionLost_3 = AttentionLostAtLeast(3)
+val AttentionLost_10 = AttentionLostAtLeast(10)
+
+/**
+ * Gentle variant — no whitelist, suitable for soft-stance archetypes.
+ * They acknowledge the loss without weaponizing it.
+ */
+class AttentionLostAtLeastGentle(private val n: Int) : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.attentionLost24h >= n
+}
+val AttentionLostGentle_3 = AttentionLostAtLeastGentle(3)
+val AttentionLostGentle_10 = AttentionLostAtLeastGentle(10)

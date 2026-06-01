@@ -112,6 +112,36 @@ Scaffold is in place. The app builds, runs, and ships:
 - **Summoning step 5** voice variant: per-archetype "stay small with
   boons" advice (`VoicePreset.staySmallBoonAdvice`) voiced by the
   daemon being authored, not in product tone.
+- **Dialogue expansion v0.0.11** (`domain/calendar/`,
+  `domain/dialogue/`): per-archetype line corpus grew from ~12 to
+  **43-49 lines each** across all 10 archetypes (~455 per-archetype
+  + 13 shared `ANY`). Coverage: per-level transition openers
+  (`AtLevelExactly` × 4 with `lifeEvent = true`), per-completion-count
+  escalation (1st through 5th minor today), attention-loss reactive
+  lines (`AttentionLostAtLeast` whitelisted to harsh archetypes;
+  `AttentionLostAtLeastGentle` for soft ones), day-of-week markers
+  (Monday / Friday / Weekend), early-morning + late-night variants
+  shaped to a WFH schedule. New `HolidayCalendar` (Catalan defaults,
+  fixed dates + Gauss-Easter for Carnaval / Good Friday / Easter
+  Monday) returns a single `HolidayToken` per pick. The loaded six
+  (Sant Jordi, La Mercè, Sant Joan, Diada, Nadal, Cap d'Any) carry
+  per-archetype voicing; the lesser holidays (Reis, Carnaval, Pasqua,
+  Festa del Treball, Festa Major de Gràcia, Assumpció, Hispanitat,
+  Castanyada, Constitució, Immaculada, Sant Esteve, Cap d'Any Eve)
+  share an ANY pool. Birthday is opt-in via DataStore-backed
+  `UserPrefs` (MM-DD); personal dates via new `personal_date` Room
+  table with Settings list (add/delete). Personal-date lines carry
+  `{label}` and the repository's `renderLine` interpolates the user's
+  authored text. Backup format bumped v3 → v4 (additive — older
+  backups still load). DB schema v5 → v6 adds the table + two
+  `daemon_state` columns (`lastDecayAmount`, `lastDecayAt`) so
+  attention-loss predicates can apply a 24h freshness window.
+  `DialogueLintTest` gains three new asserts: holiday lines must use
+  `RecencyKey.TODAY`, personal-date lines must contain `{label}`,
+  each per-archetype file ≥ 30 lines. `buildContext` finally wires
+  `minorsCompletedToday`, `minorsCompletedThisWeek`, and
+  `dailyMinorsLapsedCount` from real DAO reads (the v0.0.6.1
+  deferrals).
 
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):
@@ -165,12 +195,13 @@ lifegame/
 │       │   ├── MainActivity.kt          # single activity, Compose entry
 │       │   ├── data/                    # Room entities + DAOs + DB
 │       │   ├── domain/                  # VoicePreset, PantheonRepository
+│       │   ├── domain/calendar/        # holiday token + Catalan calendar
 │       │   ├── domain/dialogue/        # predicate-pool dialogue engine
 │       │   │   ├── DialogueLine.kt     # line/choice/enum types
 │       │   │   ├── Predicate.kt        # predicate algebra + singletons
 │       │   │   ├── DialogueEngine.kt   # selector (lifeEvent → priority → exhaust)
 │       │   │   ├── DialogueStateStore.kt  # one batched DAO read per pick
-│       │   │   └── lines/              # per-archetype line files
+│       │   │   └── lines/              # per-archetype line files (+ AnyLines)
 │       │   └── ui/                      # theme + per-screen packages
 │       │       ├── nav/                 # navigation graph
 │       │       ├── common/              # cross-screen composables

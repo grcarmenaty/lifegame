@@ -8,6 +8,7 @@ import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.LineSeen
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.data.entities.PersonalDate
 import kotlinx.serialization.Serializable
 
 /**
@@ -38,9 +39,15 @@ data class PantheonBackup(
     // v3 additions — epic chapters (DaemonState gained columns
     // automatically since it's @Serializable, defaulted on v2 import).
     val epicChapters: List<EpicChapter> = emptyList(),
+    // v4 additions — user identity & calendar (v0.0.11). Year-agnostic
+    // personal dates and a single birthday MM-DD. Both are user-
+    // authored content; restored verbatim. Older backups deserialize
+    // with empty defaults.
+    val personalDates: List<PersonalDate> = emptyList(),
+    val userBirthdayMonthDay: String? = null,
 ) {
     companion object {
-        const val CURRENT_FORMAT_VERSION = 3
+        const val CURRENT_FORMAT_VERSION = 4
         const val MIN_SUPPORTED_FORMAT_VERSION = 1
     }
 }

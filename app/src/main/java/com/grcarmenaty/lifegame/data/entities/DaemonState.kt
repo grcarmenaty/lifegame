@@ -61,4 +61,9 @@ data class DaemonState(
      * on decay (Ally polish, round 1).
      */
     val lastSeenLevel: Int = 0,
+    // v0.0.11 — attention-loss reactive lines:
+    /** Points removed in the most recent decay tick. 0 ⇒ no recent loss. */
+    val lastDecayAmount: Int = 0,
+    /** When that tick happened; null if none yet. */
+    val lastDecayAt: Long? = null,
 )

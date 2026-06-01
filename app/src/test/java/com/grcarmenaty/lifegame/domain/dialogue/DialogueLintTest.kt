@@ -161,4 +161,60 @@ class DialogueLintTest {
         assertTrue("THIS_MONTH must come before EVER",
             RecencyKey.THIS_MONTH.ordinal < RecencyKey.EVER.ordinal)
     }
+
+    /**
+     * v0.0.11 calendar guard: holiday-gated lines must carry
+     * `RecencyKey.TODAY`. Cultural dates burn for a single calendar day;
+     * a stale EVER key could be picked again weeks later via the
+     * playCount tiebreaker.
+     */
+    @Test fun holiday_lines_use_today_recency() {
+        for (line in corpus) {
+            val touchesHoliday = line.stateRequirements.any { it is OnHoliday }
+            if (!touchesHoliday) continue
+            assertEquals(
+                "Holiday line ${line.id} must use RecencyKey.TODAY so it doesn't " +
+                    "leak past its date through the playCount tiebreaker.",
+                RecencyKey.TODAY, line.recencyKey,
+            )
+        }
+    }
+
+    /**
+     * v0.0.11 templating guard: any line whose predicate is
+     * `IsPersonalDate` must carry the `{label}` placeholder. Without
+     * it the repository's `renderLine` is a no-op and the line reads
+     * generically when it should reference the user's authored text.
+     */
+    @Test fun personal_date_lines_contain_label_placeholder() {
+        for (line in corpus) {
+            val isPersonalDate = line.stateRequirements.any { it === IsPersonalDate }
+            if (!isPersonalDate) continue
+            assertTrue(
+                "Personal-date line ${line.id} must contain the {label} placeholder " +
+                    "so the user's own text is interpolated; otherwise the line is " +
+                    "generic and the predicate wasted.",
+                "{label}" in line.text,
+            )
+        }
+    }
+
+    /**
+     * v0.0.11 archetype-coverage floor: each per-archetype file must
+     * carry at least 30 distinct lines. Below that the cooldown system
+     * runs out of fresh content within a couple of weeks and the
+     * daemon's voice flattens. ANY lines don't count toward this floor
+     * (they're a shared fallback pool).
+     */
+    @Test fun each_per_archetype_file_has_at_least_30_lines() {
+        val perArchetype = corpus.filter { it.archetype != "ANY" }
+            .groupBy { it.archetype }
+        for ((arch, lines) in perArchetype) {
+            assertTrue(
+                "Archetype $arch has only ${lines.size} lines; floor is 30. " +
+                    "Below this the engine recycles content too quickly.",
+                lines.size >= 30,
+            )
+        }
+    }
 }

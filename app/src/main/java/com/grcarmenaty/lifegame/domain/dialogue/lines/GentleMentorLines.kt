@@ -2,20 +2,44 @@ package com.grcarmenaty.lifegame.domain.dialogue.lines
 
 import com.grcarmenaty.lifegame.domain.dialogue.*
 
+/**
+ * Gentle Mentor — soft stance.
+ *
+ * Voice: warm, encouraging, never demanding. Uses the gentle attention-
+ * loss predicate (no whitelist) so even shame-amplifier topics land as
+ * care, not pressure. v0.0.11 expansion mirrors the Drill Sergeant's
+ * structural coverage with the opposite emotional tone.
+ */
 internal object GentleMentorLines {
+
     private const val A = "GENTLE_MENTOR"
+
     val all: List<DialogueLine> = listOf(
+
+        // -------- OPENER · time of day --------
+
         DialogueLine("gm_first_ever", A, "Hello. I'm glad you came. We can take this slowly.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
-            lifeEvent = true,
-            stateRequirements = listOf(FirstConversation)),
+            lifeEvent = true, stateRequirements = listOf(FirstConversation)),
         DialogueLine("gm_morning", A, "Good to see you. A few small things, when you're ready.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "gm_greet", cooldownPicks = 3),
+        DialogueLine("gm_morning_early", A, "Early. The house is still soft. Whatever you do now is plenty.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Morning, IsWeekday),
+            cooldownGroup = "gm_greet", cooldownPicks = 3),
+        DialogueLine("gm_afternoon", A, "Afternoon. You don't have to do everything — just the next thing.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Afternoon),
+            cooldownGroup = "gm_greet", cooldownPicks = 3),
         DialogueLine("gm_evening", A, "Evening. Whatever you managed today was enough.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Evening),
+            cooldownGroup = "gm_greet", cooldownPicks = 3),
+        DialogueLine("gm_night_late", A, "Late. Rest counts as care too. The list will wait for you.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(TimeOfDay_Night),
             cooldownGroup = "gm_greet", cooldownPicks = 3),
         DialogueLine("gm_mid_day_return", A, "There you are. No rush — pick one small thing.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
@@ -34,6 +58,109 @@ internal object GentleMentorLines {
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(Streak_3),
             cooldownGroup = "gm_streak", cooldownPicks = 5),
+
+        // -------- OPENER · day of week --------
+
+        DialogueLine("gm_monday", A, "Monday already. Let's choose one small kind thing to do for ourselves.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsMonday, TimeOfDay_Morning),
+            cooldownGroup = "gm_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("gm_friday", A, "Friday. We did what we could. That's something worth holding.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsFriday),
+            cooldownGroup = "gm_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.THIS_WEEK),
+        DialogueLine("gm_weekend", A, "It's the weekend. Let the work be small. Let yourself rest.",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            stateRequirements = listOf(IsWeekend),
+            cooldownGroup = "gm_weekmarker", cooldownPicks = 1,
+            recencyKey = RecencyKey.TODAY),
+
+        // -------- OPENER · per-level transitions --------
+
+        DialogueLine("gm_level_1_reached", A, "Your first step. Quietly, I'm so glad.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_1),
+            cooldownGroup = "gm_level_xform", cooldownPicks = 999),
+        DialogueLine("gm_level_2_reached", A, "Something has grown between us. We don't have to name it loudly.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_2),
+            cooldownGroup = "gm_level_xform", cooldownPicks = 999),
+        DialogueLine("gm_level_3_reached", A, "You've been so steady. I trust the rhythm we've made.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_3),
+            cooldownGroup = "gm_level_xform", cooldownPicks = 999),
+        DialogueLine("gm_level_4_reached", A, "Look at us. This is a real partnership now. Be kind to it.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            lifeEvent = true, recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(LevelExactly_4),
+            cooldownGroup = "gm_level_xform", cooldownPicks = 999),
+
+        // -------- OPENER · attention loss (gentle predicate) --------
+
+        DialogueLine("gm_attention_loss_mild", A, "It's okay — some days slip. Want to start with the smallest one?",
+            LineTier.CONTEXTUAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_3),
+            cooldownGroup = "gm_atten_loss", cooldownPicks = 2),
+        DialogueLine("gm_attention_loss_hard", A, "It's been a hard stretch. I'm still here. We can begin anywhere.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_10),
+            cooldownGroup = "gm_atten_loss", cooldownPicks = 2),
+
+        // -------- OPENER · holidays --------
+
+        DialogueLine("gm_sant_jordi", A, "Sant Jordi today. A book and a rose for someone — even just yourself.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJordi),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+        DialogueLine("gm_la_merce", A, "La Mercè. Go wander the city tonight if you can. The work can be a small one today.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnLaMerce),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+        DialogueLine("gm_sant_joan", A, "Sant Joan's eve. Tonight is for fire and noise — today is for setting one small thing right.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnSantJoan),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+        DialogueLine("gm_diada", A, "La Diada. Take it gently. Some days are heavier than others.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnDiada),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+        DialogueLine("gm_nadal", A, "Nadal. Be with the people who matter. The list will be here when you get back.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnNadal),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+        DialogueLine("gm_cap_d_any", A, "First day of the year. No vows tonight — just one small kind act.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(OnCapDAny),
+            cooldownGroup = "gm_holiday", cooldownPicks = 1),
+
+        // -------- OPENER · birthday + personal date --------
+
+        DialogueLine("gm_birthday", A, "Happy birthday. I hope someone says it gently to you today. From me, too.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsBirthday),
+            cooldownGroup = "gm_birthday", cooldownPicks = 1),
+        DialogueLine("gm_personal_date", A, "You marked today: {label}. Whatever it is, I'm here.",
+            LineTier.ESSENTIAL, LineCategory.OPENER,
+            recencyKey = RecencyKey.TODAY, lifeEvent = true,
+            stateRequirements = listOf(IsPersonalDate),
+            cooldownGroup = "gm_personal", cooldownPicks = 1),
+
+        // -------- COMPLETION --------
+
         DialogueLine("gm_complete_1", A, "Lovely. That mattered.",
             LineTier.FILLER, LineCategory.COMPLETION),
         DialogueLine("gm_complete_2", A, "Thank you for that.",
@@ -44,16 +171,50 @@ internal object GentleMentorLines {
             LineTier.CONTEXTUAL, LineCategory.COMPLETION,
             stateRequirements = listOf(MinorsToday_1),
             cooldownGroup = "gm_first_today", cooldownPicks = 6),
+        DialogueLine("gm_complete_second_today", A, "Another. Without rush. Lovely.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_2),
+            cooldownGroup = "gm_2_today", cooldownPicks = 6),
+        DialogueLine("gm_complete_third_today", A, "Three. Real care, gently spent.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_3),
+            cooldownGroup = "gm_3_today", cooldownPicks = 6),
+        DialogueLine("gm_complete_fourth_today", A, "Four — and you're still being kind to yourself. That's the trick.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
+            stateRequirements = listOf(MinorsToday_4),
+            cooldownGroup = "gm_4_today", cooldownPicks = 6),
+        DialogueLine("gm_complete_fifth_today", A, "Five. Tomorrow, half this would be plenty too.",
+            LineTier.ESSENTIAL, LineCategory.COMPLETION,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(MinorsToday_5),
+            cooldownGroup = "gm_5_today", cooldownPicks = 1),
+
+        // -------- APOTHEOSIS --------
+
         DialogueLine("gm_apotheosis_1", A, "Look how far you've come. Let's take a breath.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("gm_apotheosis_2", A, "A chapter completes. I'm grateful for the company.",
             LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
+        DialogueLine("gm_apotheosis_3", A, "Done, and you did it as yourself. That's the part I notice.",
+            LineTier.CONTEXTUAL, LineCategory.APOTHEOSIS),
         DialogueLine("gm_apotheosis_first_ever", A, "Your first chapter. I'll keep it carefully.",
             LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
-            lifeEvent = true,
-            stateRequirements = listOf(MajorsClosed_1)),
+            lifeEvent = true, stateRequirements = listOf(MajorsClosed_1)),
+        DialogueLine("gm_apotheosis_at_level_2", A, "There's a shape between us now. I'll keep showing up.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_2),
+            cooldownGroup = "gm_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("gm_apotheosis_at_level_3", A, "What we've built deserves a little tenderness. Notice that.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_3),
+            cooldownGroup = "gm_apotheosis_levelband", cooldownPicks = 3),
+        DialogueLine("gm_apotheosis_at_level_4", A, "We're old friends now. Whatever happens, I'll be here.",
+            LineTier.ESSENTIAL, LineCategory.APOTHEOSIS,
+            stateRequirements = listOf(Level_4),
+            cooldownGroup = "gm_apotheosis_levelband", cooldownPicks = 3),
 
-        // NUDGE — gentle, no shame
+        // -------- NUDGE --------
+
         DialogueLine("gm_nudge_morning", A,
             "Good morning. A few small things, when you'd like.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
@@ -69,5 +230,12 @@ internal object GentleMentorLines {
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
             cooldownGroup = "gm_nudge", cooldownPicks = 1, crossSurfaceCooldown = true),
+        DialogueLine("gm_nudge_attention_loss", A,
+            "It's been a rough patch. No urgency. I'm here when you want to begin again.",
+            LineTier.CONTEXTUAL, LineCategory.NUDGE,
+            recencyKey = RecencyKey.TODAY,
+            stateRequirements = listOf(AttentionLostGentle_10),
+            cooldownGroup = "gm_loss_nudge",
+            cooldownPicks = 2, crossSurfaceCooldown = true),
     )
 }

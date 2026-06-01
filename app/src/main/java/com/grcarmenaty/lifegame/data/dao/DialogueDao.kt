@@ -87,7 +87,9 @@ interface DialogueDao {
     @Query("""
         UPDATE daemon_state
         SET attentionPoints = MAX(0, attentionPoints - :amount),
-            lastAttentionUpdateAt = :at
+            lastAttentionUpdateAt = :at,
+            lastDecayAmount = :amount,
+            lastDecayAt = :at
         WHERE daemonId = :daemonId
     """)
     suspend fun applyDecay(daemonId: Long, amount: Int, at: Long)

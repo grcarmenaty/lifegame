@@ -4,6 +4,7 @@ import com.grcarmenaty.lifegame.data.dao.BoonDao
 import com.grcarmenaty.lifegame.data.dao.DaemonDao
 import com.grcarmenaty.lifegame.data.dao.DialogueDao
 import com.grcarmenaty.lifegame.data.dao.EpicChapterDao
+import com.grcarmenaty.lifegame.data.dao.PersonalDateDao
 import com.grcarmenaty.lifegame.data.dao.QuestDao
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.Daemon
@@ -11,9 +12,12 @@ import com.grcarmenaty.lifegame.data.entities.DaemonState
 import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.data.entities.PersonalDate
 import com.grcarmenaty.lifegame.domain.attention.AttentionConfig
 import com.grcarmenaty.lifegame.domain.attention.AttentionDecay
 import com.grcarmenaty.lifegame.domain.attention.AttentionMath
+import com.grcarmenaty.lifegame.domain.calendar.HolidayCalendar
+import com.grcarmenaty.lifegame.domain.calendar.HolidayToken
 import com.grcarmenaty.lifegame.domain.dialogue.ConversationContext
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueEngine
 import com.grcarmenaty.lifegame.domain.dialogue.DialogueLine
@@ -53,6 +57,8 @@ class PantheonRepository(
     private val dialogueStateStore: DialogueStateStore,
     private val epicChapterDao: EpicChapterDao,
     private val attentionDecay: AttentionDecay,
+    private val personalDateDao: PersonalDateDao,
+    private val userPrefs: UserPrefs,
 ) {
     private val defaultThresholdForAddedMajor = 3
 
@@ -81,24 +87,55 @@ class PantheonRepository(
      */
     private suspend fun buildContext(daemon: Daemon): ConversationContext {
         val state = dialogueStateStore.ensureDaemonState(daemon.id)
-        val majors = questDao.observeMajorsForDaemon(daemon.id).let {
-            // Use a non-suspending one-shot read via DAO suspend variant
-            questDao.getMajorsForDaemon(daemon.id)
-        }
+        val majors = questDao.getMajorsForDaemon(daemon.id)
         val openMajors = majors.filter { !it.completed }
+        val nowMs = System.currentTimeMillis()
         val recentlyClosedMajor = majors
             .filter { it.completed }
             .maxByOrNull { it.createdAt }
-            ?.takeIf { System.currentTimeMillis() - it.createdAt < 24L * 3600_000L }
+            ?.takeIf { nowMs - it.createdAt < 24L * 3600_000L }
         val boons = boonDao.getForDaemon(daemon.id)
         val totalWishes = boons.sumOf { it.count }
-        val level = 1 + questDao.countCompletedMajorsForDaemon(daemon.id)
+        // Level is now attention-derived (v0.0.10).
+        val level = AttentionMath.levelFor(state.attentionPoints)
         val daysSinceFirst = state.firstConversationAt?.let {
-            ((System.currentTimeMillis() - it) / (24L * 3600_000L)).toInt()
+            ((nowMs - it) / (24L * 3600_000L)).toInt()
         }
         val daysSinceLast = state.lastConversationAt?.let {
-            ((System.currentTimeMillis() - it) / (24L * 3600_000L)).toInt()
+            ((nowMs - it) / (24L * 3600_000L)).toInt()
         }
+
+        // v0.0.11: wire up the previously-stubbed completion + lapse
+        // counters from real DAO reads.
+        val tz = TimeZone.getDefault()
+        val startOfToday = startOfLocalDay(nowMs, tz)
+        val startOfWeek = startOfLocalWeek(nowMs, tz)
+        val minorsToday = questDao.countMinorsCompletedSince(daemon.id, startOfToday)
+        val minorsThisWeek = questDao.countMinorsCompletedSince(daemon.id, startOfWeek)
+        val lapsedDailies = questDao.countDailyMinorsLapsed(daemon.id, startOfToday)
+
+        // v0.0.11: attention loss within the 24h freshness window.
+        val attentionLost24h = state.lastDecayAt
+            ?.let { if (nowMs - it <= 24L * 3600_000L) state.lastDecayAmount else 0 }
+            ?: 0
+
+        // v0.0.11: calendar token resolution. Birthday > personal > cultural.
+        val cal = HolidayCalendar.localCalendar(nowMs, tz)
+        val todayMonth = cal.get(Calendar.MONTH) + 1
+        val todayDay = cal.get(Calendar.DAY_OF_MONTH)
+        val birthdayMmDd = userPrefs.getBirthdayMonthDay()
+        val isBirthdayToday = UserPrefs.parseMmDd(birthdayMmDd)?.let { (m, d) ->
+            m == todayMonth && d == todayDay
+        } ?: false
+        val personalDateMatch = if (!isBirthdayToday) {
+            personalDateDao.forMonthDay(todayMonth, todayDay)
+        } else null
+        val holidayToken = when {
+            isBirthdayToday -> HolidayToken.BIRTHDAY
+            personalDateMatch != null -> HolidayToken.PERSONAL_DATE
+            else -> HolidayCalendar.tokenFor(cal)
+        }
+
         return ConversationContext(
             daemonId = daemon.id,
             daemonName = daemon.name,
@@ -106,22 +143,50 @@ class PantheonRepository(
             level = level,
             openMajors = openMajors,
             recentlyClosedMajor = recentlyClosedMajor,
-            recentlyCompletedMinors = emptyList(),       // v0.0.6.1
-            minorsCompletedToday = 0,                    // v0.0.6.1
-            minorsCompletedThisWeek = 0,                 // v0.0.6.1
-            dailyMinorsLapsedCount = 0,                  // v0.0.6.1
-            streakDays = 0,                              // v0.0.6.1
+            recentlyCompletedMinors = emptyList(),       // still deferred
+            minorsCompletedToday = minorsToday,
+            minorsCompletedThisWeek = minorsThisWeek,
+            dailyMinorsLapsedCount = lapsedDailies,
+            streakDays = 0,                              // still deferred
             totalWishesAvailable = totalWishes,
-            recentlySpentBoonText = null,                // v0.0.6.1
+            recentlySpentBoonText = null,                // still deferred
             conversationsHad = state.conversationsHad,
             daysSinceLastConversation = daysSinceLast,
             daysSinceFirstConversation = daysSinceFirst,
             majorsClosedTotal = state.majorsClosedTotal,
             wishesSpentTotal = state.wishesSpentTotal,
-            minutesSinceLastForeground = null,           // v0.0.6.1
-            dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK),
+            minutesSinceLastForeground = null,           // still deferred
+            dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
             timeOfDay = currentTimeOfDay(),
+            attentionPoints = state.attentionPoints,
+            attentionLost24h = attentionLost24h,
+            holidayToken = holidayToken,
+            personalDateLabel = personalDateMatch?.label,
         )
+    }
+
+    private fun startOfLocalDay(nowMs: Long, tz: TimeZone): Long {
+        val c = Calendar.getInstance(tz)
+        c.timeInMillis = nowMs
+        c.set(Calendar.HOUR_OF_DAY, 0)
+        c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        return c.timeInMillis
+    }
+
+    private fun startOfLocalWeek(nowMs: Long, tz: TimeZone): Long {
+        val c = Calendar.getInstance(tz)
+        c.timeInMillis = nowMs
+        c.set(Calendar.HOUR_OF_DAY, 0)
+        c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        // Roll back to the first day of this week per locale's firstDayOfWeek.
+        while (c.get(Calendar.DAY_OF_WEEK) != c.firstDayOfWeek) {
+            c.add(Calendar.DAY_OF_MONTH, -1)
+        }
+        return c.timeInMillis
     }
 
     // ---- Nudge worker support (v0.0.7) ----
@@ -166,6 +231,11 @@ class PantheonRepository(
     /**
      * Engine pick + mark-played. Returns the rendered text or null if no
      * eligible line. Callers fall back to [VoicePreset] templated lines.
+     *
+     * v0.0.11: personal-date lines may contain the `{label}` placeholder,
+     * which we substitute with the matched [PersonalDate.label]. Safe
+     * because the label is the user's own input; never an arbitrary
+     * source.
      */
     suspend fun pickInline(daemonId: Long, category: LineCategory): String? {
         val daemon = daemonDao.getById(daemonId) ?: return null
@@ -173,8 +243,26 @@ class PantheonRepository(
         val state = dialogueStateStore.loadState(daemonId)
         val line = dialogueEngine.pickFor(category, Surface.INLINE, ctx, state) ?: return null
         dialogueStateStore.markPlayed(daemonId, line, Surface.INLINE)
-        return line.text
+        return renderLine(line.text, ctx)
     }
+
+    private fun renderLine(text: String, ctx: ConversationContext): String {
+        val label = ctx.personalDateLabel ?: return text
+        return text.replace("{label}", label)
+    }
+
+    // ---- Personal dates (v0.0.11) ----
+
+    fun observePersonalDates(): Flow<List<PersonalDate>> = personalDateDao.observeAll()
+
+    suspend fun addPersonalDate(label: String, month: Int, day: Int): Long {
+        val safeLabel = label.trim()
+        if (safeLabel.isEmpty()) return -1L
+        if (month !in 1..12 || day !in 1..31) return -1L
+        return personalDateDao.insert(PersonalDate(label = safeLabel, month = month, day = day))
+    }
+
+    suspend fun deletePersonalDate(id: Long) = personalDateDao.deleteById(id)
 
     private fun currentTimeOfDay(): TimeOfDay {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -589,6 +677,9 @@ class PantheonRepository(
         val cooldowns = dialogueDao.allCooldowns()
         val states = dialogueDao.allDaemonState()
         val chapters = epicChapterDao.all()
+        // v4: personal dates + birthday travel with the backup.
+        val personalDates = personalDateDao.getAll()
+        val birthday = userPrefs.getBirthdayMonthDay()
         return json.encodeToString(
             PantheonBackup(
                 exportedAt = System.currentTimeMillis(),
@@ -598,6 +689,8 @@ class PantheonRepository(
                 cooldownPlay = cooldowns,
                 daemonState = states,
                 epicChapters = chapters,
+                personalDates = personalDates,
+                userBirthdayMonthDay = birthday,
             )
         )
     }
@@ -648,6 +741,14 @@ class PantheonRepository(
         if (backup.epicChapters.isNotEmpty()) {
             epicChapterDao.insertAll(backup.epicChapters)
         }
+        // v4: personal dates + birthday. Restore only — reset wipes
+        // the DataStore birthday because it was part of the prior
+        // pantheon's identity; the imported value (if any) replaces.
+        personalDateDao.deleteAll()
+        if (backup.personalDates.isNotEmpty()) {
+            personalDateDao.insertAll(backup.personalDates)
+        }
+        userPrefs.setBirthdayMonthDay(backup.userBirthdayMonthDay)
 
         // Architect (round 1 v0.0.10): on v1/v2 import, the loaded
         // DaemonState (if any) lacks the v0.0.10 attention columns and
@@ -678,6 +779,9 @@ class PantheonRepository(
     suspend fun reset() {
         // FK CASCADE deletes boons, major_quests, and minor_quests for us.
         daemonDao.deleteAll()
+        // Personal dates + birthday are user identity, also wiped on reset.
+        personalDateDao.deleteAll()
+        userPrefs.setBirthdayMonthDay(null)
     }
 
     private fun sameLocalDay(a: Long, b: Long): Boolean {

@@ -25,6 +25,39 @@ interface QuestDao {
     @Query("SELECT COUNT(*) FROM minor_quests WHERE majorQuestId = :majorId AND completed = 1")
     suspend fun countCompletedMinorsForMajor(majorId: Long): Int
 
+    /**
+     * Count of minors under any of [daemonId]'s majors whose
+     * `lastCompletedAt` is on/after [sinceMillis]. Used by
+     * `buildContext` to populate `minorsCompletedToday` /
+     * `minorsCompletedThisWeek`. Indexed by `majorQuestId`; SQLite
+     * resolves the IN-subquery cheaply for small fanouts.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM minor_quests
+        WHERE majorQuestId IN (SELECT id FROM major_quests WHERE daemonId = :daemonId)
+          AND lastCompletedAt IS NOT NULL
+          AND lastCompletedAt >= :sinceMillis
+        """
+    )
+    suspend fun countMinorsCompletedSince(daemonId: Long, sinceMillis: Long): Int
+
+    /**
+     * Count of DAILY minors under [daemonId]'s majors that have a
+     * historical completion AND have NOT been completed today (i.e.
+     * `lastCompletedAt < :startOfTodayMillis`). Drives `AfterLapse`.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM minor_quests
+        WHERE majorQuestId IN (SELECT id FROM major_quests WHERE daemonId = :daemonId)
+          AND cadence = 'DAILY'
+          AND lastCompletedAt IS NOT NULL
+          AND lastCompletedAt < :startOfTodayMillis
+        """
+    )
+    suspend fun countDailyMinorsLapsed(daemonId: Long, startOfTodayMillis: Long): Int
+
     @Query("SELECT COUNT(*) FROM minor_quests WHERE majorQuestId = :majorId")
     suspend fun countMinorsForMajor(majorId: Long): Int
 
