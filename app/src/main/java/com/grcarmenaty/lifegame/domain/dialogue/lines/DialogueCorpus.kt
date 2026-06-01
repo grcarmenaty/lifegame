@@ -62,5 +62,14 @@ object DialogueCorpus {
             .DrillSergeantRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .DrillSergeantBoundariesLines.all,
+        // Gentle Mentor themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorHydrationLines.all,
     ).flatten()
 }
