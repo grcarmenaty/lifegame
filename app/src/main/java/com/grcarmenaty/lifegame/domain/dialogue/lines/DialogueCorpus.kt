@@ -95,5 +95,13 @@ object DialogueCorpus {
             .GentleMentorHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .GentleMentorOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .GentleMentorBoundariesLines.all,
     ).flatten()
 }
