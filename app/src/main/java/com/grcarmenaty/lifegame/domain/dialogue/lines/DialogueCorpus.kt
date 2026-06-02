@@ -382,5 +382,13 @@ object DialogueCorpus {
             .CoachHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CoachOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachBoundariesLines.all,
     ).flatten()
 }
