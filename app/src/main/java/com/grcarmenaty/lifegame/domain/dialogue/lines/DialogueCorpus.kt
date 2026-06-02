@@ -267,5 +267,14 @@ object DialogueCorpus {
             .TricksterRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .TricksterBoundariesLines.all,
+        // Poet themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetHydrationLines.all,
     ).flatten()
 }
