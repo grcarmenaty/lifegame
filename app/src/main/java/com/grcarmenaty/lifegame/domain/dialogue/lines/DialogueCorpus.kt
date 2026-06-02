@@ -177,5 +177,13 @@ object DialogueCorpus {
             .StoicHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .StoicOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicBoundariesLines.all,
     ).flatten()
 }
