@@ -349,5 +349,14 @@ object DialogueCorpus {
             .TherapistRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .TherapistBoundariesLines.all,
+        // Coach themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachHydrationLines.all,
     ).flatten()
 }
