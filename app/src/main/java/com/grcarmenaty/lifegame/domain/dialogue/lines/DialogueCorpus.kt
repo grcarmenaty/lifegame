@@ -185,5 +185,14 @@ object DialogueCorpus {
             .StoicRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .StoicBoundariesLines.all,
+        // Cheerleader themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderHydrationLines.all,
     ).flatten()
 }
