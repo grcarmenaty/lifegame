@@ -341,5 +341,13 @@ object DialogueCorpus {
             .TherapistHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .TherapistOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistBoundariesLines.all,
     ).flatten()
 }
