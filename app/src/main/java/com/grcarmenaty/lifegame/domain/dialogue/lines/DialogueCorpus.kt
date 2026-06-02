@@ -120,5 +120,13 @@ object DialogueCorpus {
             .OracleCareerLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .OracleLearningLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleWritingLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleMeditationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleLoveLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleFamilyLines.all,
     ).flatten()
 }
