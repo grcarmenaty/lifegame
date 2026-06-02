@@ -414,5 +414,13 @@ object DialogueCorpus {
             .HermitLoveLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .HermitFamilyLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitFriendshipLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitGratitudeLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitHobbiesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitOutdoorsLines.all,
     ).flatten()
 }
