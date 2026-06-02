@@ -292,5 +292,13 @@ object DialogueCorpus {
             .PoetLoveLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .PoetFamilyLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetFriendshipLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetGratitudeLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetHobbiesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetOutdoorsLines.all,
     ).flatten()
 }
