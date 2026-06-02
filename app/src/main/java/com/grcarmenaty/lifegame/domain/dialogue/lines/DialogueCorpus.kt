@@ -243,5 +243,13 @@ object DialogueCorpus {
             .TricksterCareerLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .TricksterLearningLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterWritingLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterMeditationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterLoveLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterFamilyLines.all,
     ).flatten()
 }
