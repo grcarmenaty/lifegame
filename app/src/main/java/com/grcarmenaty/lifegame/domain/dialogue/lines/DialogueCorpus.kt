@@ -300,5 +300,13 @@ object DialogueCorpus {
             .PoetHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .PoetOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .PoetBoundariesLines.all,
     ).flatten()
 }
