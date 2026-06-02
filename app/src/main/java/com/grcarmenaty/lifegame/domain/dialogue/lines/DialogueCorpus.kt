@@ -153,5 +153,13 @@ object DialogueCorpus {
             .StoicNutritionLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .StoicHydrationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicTidynessLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicFinancesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicCareerLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicLearningLines.all,
     ).flatten()
 }
