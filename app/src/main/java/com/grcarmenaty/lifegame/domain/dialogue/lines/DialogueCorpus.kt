@@ -366,5 +366,13 @@ object DialogueCorpus {
             .CoachCareerLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CoachLearningLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachWritingLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachMeditationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachLoveLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachFamilyLines.all,
     ).flatten()
 }
