@@ -144,5 +144,14 @@ object DialogueCorpus {
             .OracleRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .OracleBoundariesLines.all,
+        // Stoic themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .StoicHydrationLines.all,
     ).flatten()
 }
