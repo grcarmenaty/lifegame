@@ -112,5 +112,13 @@ object DialogueCorpus {
             .OracleNutritionLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .OracleHydrationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleTidynessLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleFinancesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleCareerLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleLearningLines.all,
     ).flatten()
 }
