@@ -194,5 +194,13 @@ object DialogueCorpus {
             .CheerleaderNutritionLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CheerleaderHydrationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderTidynessLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderFinancesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderCareerLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderLearningLines.all,
     ).flatten()
 }
