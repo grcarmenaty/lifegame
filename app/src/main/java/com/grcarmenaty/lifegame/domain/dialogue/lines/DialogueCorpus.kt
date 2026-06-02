@@ -103,5 +103,14 @@ object DialogueCorpus {
             .GentleMentorRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .GentleMentorBoundariesLines.all,
+        // Oracle themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleHydrationLines.all,
     ).flatten()
 }
