@@ -210,5 +210,13 @@ object DialogueCorpus {
             .CheerleaderLoveLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CheerleaderFamilyLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderFriendshipLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderGratitudeLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderHobbiesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CheerleaderOutdoorsLines.all,
     ).flatten()
 }
