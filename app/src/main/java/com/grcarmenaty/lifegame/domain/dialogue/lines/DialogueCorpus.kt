@@ -374,5 +374,13 @@ object DialogueCorpus {
             .CoachLoveLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CoachFamilyLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachFriendshipLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachGratitudeLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachHobbiesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .CoachOutdoorsLines.all,
     ).flatten()
 }
