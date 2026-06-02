@@ -136,5 +136,13 @@ object DialogueCorpus {
             .OracleHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .OracleOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .OracleBoundariesLines.all,
     ).flatten()
 }
