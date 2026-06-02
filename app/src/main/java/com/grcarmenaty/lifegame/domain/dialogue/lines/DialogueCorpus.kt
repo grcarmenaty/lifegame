@@ -308,5 +308,14 @@ object DialogueCorpus {
             .PoetRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .PoetBoundariesLines.all,
+        // Therapist themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistHydrationLines.all,
     ).flatten()
 }
