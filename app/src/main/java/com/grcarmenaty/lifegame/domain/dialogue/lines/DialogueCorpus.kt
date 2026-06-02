@@ -390,5 +390,13 @@ object DialogueCorpus {
             .CoachRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CoachBoundariesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitHydrationLines.all,
     ).flatten()
 }
