@@ -226,5 +226,14 @@ object DialogueCorpus {
             .CheerleaderRecoveryLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .CheerleaderBoundariesLines.all,
+        // Trickster themed packs.
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterExerciseLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterSleepLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterNutritionLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TricksterHydrationLines.all,
     ).flatten()
 }
