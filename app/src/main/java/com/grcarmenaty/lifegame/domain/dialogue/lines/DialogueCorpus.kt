@@ -317,5 +317,13 @@ object DialogueCorpus {
             .TherapistNutritionLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .TherapistHydrationLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistTidynessLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistFinancesLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistCareerLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .TherapistLearningLines.all,
     ).flatten()
 }
