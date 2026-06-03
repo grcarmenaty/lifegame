@@ -2,6 +2,7 @@ package com.grcarmenaty.lifegame.domain
 
 import androidx.annotation.DrawableRes
 import com.grcarmenaty.lifegame.R
+import com.grcarmenaty.lifegame.data.entities.Daemon
 
 /**
  * Ethereal-abstract face icon per (archetype, theme) pair. Each pair has
@@ -26,4 +27,19 @@ object DaemonFaceSuggestions {
         val index = (((seed % variants.size) + variants.size) % variants.size).toInt()
         return variants[index]
     }
+
+    /**
+     * The face to render for a stored [daemon]: its explicit pick when
+     * set (v0.0.13), otherwise the deterministic per-(archetype, theme)
+     * variant keyed on the daemon's id — the legacy behaviour, so
+     * daemons summoned before faces were selectable look unchanged.
+     */
+    @DrawableRes
+    fun faceForDaemon(daemon: Daemon): Int =
+        DaemonFaceCatalog.resForName(daemon.face)
+            ?: faceFor(
+                VoicePreset.fromKey(daemon.voicePreset),
+                LifeTheme.fromKey(daemon.theme),
+                daemon.id,
+            )
 }

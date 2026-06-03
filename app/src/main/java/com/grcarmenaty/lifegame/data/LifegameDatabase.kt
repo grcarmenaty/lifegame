@@ -28,7 +28,7 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
         LineSeen::class, CooldownPlay::class, DaemonState::class,
         EpicChapter::class, PersonalDate::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -52,7 +52,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                        MIGRATION_7_8,
+                        MIGRATION_7_8, MIGRATION_8_9,
                     )
                     .build()
                     .also { instance = it }
@@ -416,5 +416,18 @@ internal val MIGRATION_6_7 = object : Migration(6, 7) {
 internal val MIGRATION_7_8 = object : Migration(7, 8) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `daemons` ADD COLUMN `theme` TEXT")
+    }
+}
+
+/**
+ * v8 → v9: user-chosen faces (v0.0.13). Single additive nullable
+ * column on `daemons`: `face TEXT NULL`. Existing rows get NULL, which
+ * the renderer interprets as "no explicit pick" and falls back to the
+ * deterministic per-(archetype, theme) variant — visually unchanged
+ * for any daemon summoned before this version.
+ */
+internal val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `daemons` ADD COLUMN `face` TEXT")
     }
 }

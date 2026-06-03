@@ -45,15 +45,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.data.entities.Boon
 import com.grcarmenaty.lifegame.data.entities.EpicChapter
 import com.grcarmenaty.lifegame.data.entities.MajorQuest
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.DaemonFaceCatalog
+import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
+import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
+import com.grcarmenaty.lifegame.ui.common.FacePicker
 import com.grcarmenaty.lifegame.ui.common.VoicePresetPicker
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,6 +91,8 @@ fun DaemonDetailScreen(
     var name by rememberSaveable(daemon.id) { mutableStateOf(daemon.name) }
     var archetype by rememberSaveable(daemon.id) { mutableStateOf(daemon.archetype) }
     var voiceKey by rememberSaveable(daemon.id) { mutableStateOf(daemon.voicePreset) }
+    // Null = inherit the deterministic default; a name = explicit pick.
+    var faceKey by rememberSaveable(daemon.id) { mutableStateOf(daemon.face) }
 
     var showVanishConfirm by rememberSaveable { mutableStateOf(false) }
     var showAddBoon by rememberSaveable { mutableStateOf(false) }
@@ -94,9 +102,13 @@ fun DaemonDetailScreen(
     var pendingChapterForMajor by rememberSaveable { mutableStateOf<String?>(null) }
 
     val voice = VoicePreset.fromKey(voiceKey)
+    val theme = LifeTheme.fromKey(daemon.theme)
+    val selectedFaceRes = DaemonFaceCatalog.resForName(faceKey)
+        ?: DaemonFaceSuggestions.faceFor(voice, theme, daemon.id)
     val dirty = name != daemon.name ||
         archetype != daemon.archetype ||
-        voiceKey != daemon.voicePreset
+        voiceKey != daemon.voicePreset ||
+        faceKey != daemon.face
     val canSave = dirty && name.isNotBlank() && archetype.isNotBlank()
 
     LaunchedEffect(saved) { if (saved) viewModel.acknowledgeSaved() }
@@ -104,7 +116,18 @@ fun DaemonDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(daemon.name) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(selectedFaceRes),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(daemon.name)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -154,8 +177,20 @@ fun DaemonDetailScreen(
                 onSelect = { voiceKey = it.name },
                 collapsible = true,
             )
+            Text(
+                text = "Face",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FacePicker(
+                preset = voice,
+                theme = theme,
+                selectedRes = selectedFaceRes,
+                onSelect = { faceName, _ -> faceKey = faceName },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Button(
-                onClick = { viewModel.save(name, archetype, voice) },
+                onClick = { viewModel.save(name, archetype, voice, faceKey) },
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (dirty) "Save changes" else "Saved") }
