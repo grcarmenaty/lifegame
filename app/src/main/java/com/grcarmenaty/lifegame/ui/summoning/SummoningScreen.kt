@@ -177,7 +177,11 @@ fun SummoningScreen(
                 ) {
                     val pickedTheme = LifeTheme.fromKey(themeKey)
                     val names = DaemonNameSuggestions.forPair(voice, pickedTheme)
-                    val faceRes = DaemonFaceSuggestions.faceFor(voice)
+                    // No daemon id yet at summoning; derive a stable variant
+                    // from the chosen pair so the preview stays consistent.
+                    val faceSeed = (voice.name + (pickedTheme?.key ?: "OTHER"))
+                        .hashCode().toLong()
+                    val faceRes = DaemonFaceSuggestions.faceFor(voice, pickedTheme, faceSeed)
                     if (names.isNotEmpty()) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
