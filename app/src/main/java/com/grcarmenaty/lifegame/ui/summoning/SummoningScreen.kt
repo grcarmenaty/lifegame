@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,21 +33,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.grcarmenaty.lifegame.data.entities.MinorQuest
 import com.grcarmenaty.lifegame.domain.DaemonFaceCatalog
 import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.DaemonNameSuggestions
 import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
-import com.grcarmenaty.lifegame.ui.common.CadencePicker
 import com.grcarmenaty.lifegame.ui.common.FacePicker
 import com.grcarmenaty.lifegame.ui.common.ThemePicker
 import com.grcarmenaty.lifegame.ui.common.VoicePresetPicker
 import kotlinx.coroutines.launch
-
-private const val MAX_MINOR_SLOTS = 7
-private const val INITIAL_MINOR_SLOTS = 3
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -73,36 +67,22 @@ fun SummoningScreen(
     // default so what the preview showed is what the daemon keeps.
     var faceKey by rememberSaveable { mutableStateOf<String?>(null) }
     var voiceKey by rememberSaveable { mutableStateOf(VoicePreset.GENTLE_MENTOR.name) }
-    var majorTitle by rememberSaveable { mutableStateOf("") }
     var boon by rememberSaveable { mutableStateOf("") }
     var summoning by rememberSaveable { mutableStateOf(false) }
 
-    // Up to MAX_MINOR_SLOTS slots; only the first slotCount are rendered.
-    // Storing all slots regardless of visibility means a user who removes
-    // a slot and re-adds it gets their text back.
-    val minorTitleStates: List<MutableState<String>> = List(MAX_MINOR_SLOTS) { i ->
-        rememberSaveable(key = "minor_title_$i") { mutableStateOf("") }
+    // v0.0.14: the picked majors + their minors (library or custom),
+    // saveable as a single JSON blob so the ritual survives rotation.
+    var selection by rememberSaveable(stateSaver = SummonSelectionSaver) {
+        mutableStateOf(SummonSelection())
     }
-    val minorCadenceStates: List<MutableState<String>> = List(MAX_MINOR_SLOTS) { i ->
-        rememberSaveable(key = "minor_cadence_$i") { mutableStateOf(MinorQuest.CADENCE_ONE_OFF) }
-    }
-    // v0.0.12: per-slot count + days. Saveable as Int + CSV-string.
-    val minorCountStates: List<MutableState<Int>> = List(MAX_MINOR_SLOTS) { i ->
-        rememberSaveable(key = "minor_count_$i") { mutableStateOf(1) }
-    }
-    val minorDaysStates: List<MutableState<String>> = List(MAX_MINOR_SLOTS) { i ->
-        rememberSaveable(key = "minor_days_$i") { mutableStateOf("") }
-    }
-    var slotCount by rememberSaveable { mutableStateOf(INITIAL_MINOR_SLOTS) }
 
     val voice = VoicePreset.fromKey(voiceKey)
-    val anyMinor = (0 until slotCount).any { minorTitleStates[it].value.isNotBlank() }
     val canAdvance = when (step) {
         0 -> archetype.isNotBlank()
         1 -> true
         2 -> name.isNotBlank()
-        3 -> majorTitle.isNotBlank()
-        4 -> anyMinor
+        3 -> selection.majors.isNotEmpty()
+        4 -> selection.majors.all { it.minorCount > 0 }
         5 -> boon.isNotBlank()
         else -> false
     }
@@ -213,59 +193,25 @@ fun SummoningScreen(
                     )
                 }
                 3 -> Prompt(
-                    question = "What's one thing it wants from you in the next month?",
-                    helper = "This becomes its first major quest.",
+                    question = "What will it ask of you?",
+                    helper = "Choose its major quests — as many as you want — or write " +
+                        "your own.",
                 ) {
-                    OutlinedTextField(
-                        value = majorTitle,
-                        onValueChange = { majorTitle = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. Run a 10k") },
+                    MajorPickStep(
+                        theme = LifeTheme.fromKey(themeKey),
+                        selection = selection,
+                        onChange = { selection = it },
                     )
                 }
                 4 -> Prompt(
-                    question = "What small acts will feed that?",
-                    helper = "Each becomes a minor quest. Set how often it should come " +
-                        "back — once, n times a day/week/month, or weekly on specific days.",
+                    question = "What small acts will feed those?",
+                    helper = "Pick the minor quests under each. Repeating ones return on " +
+                        "their own rhythm; one-off ones are the harder milestones.",
                 ) {
-                    (0 until slotCount).forEach { i ->
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = minorTitleStates[i].value,
-                                onValueChange = { minorTitleStates[i].value = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Small act ${i + 1}") },
-                            )
-                            CadencePicker(
-                                cadence = minorCadenceStates[i].value,
-                                cadenceCount = minorCountStates[i].value,
-                                cadenceDays = MinorQuest.parseDaysCsv(minorDaysStates[i].value),
-                                onCadenceChange = { minorCadenceStates[i].value = it },
-                                onCadenceCountChange = { minorCountStates[i].value = it },
-                                onCadenceDaysChange = {
-                                    minorDaysStates[i].value = MinorQuest.encodeDays(it) ?: ""
-                                },
-                                enabled = !summoning,
-                            )
-                        }
-                        if (i < slotCount - 1) Spacer(Modifier.height(12.dp))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = { if (slotCount > 1) slotCount-- },
-                            enabled = slotCount > 1 && !summoning,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("− Remove") }
-                        OutlinedButton(
-                            onClick = { if (slotCount < MAX_MINOR_SLOTS) slotCount++ },
-                            enabled = slotCount < MAX_MINOR_SLOTS && !summoning,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("+ Add slot") }
-                    }
+                    MinorPickStep(
+                        selection = selection,
+                        onChange = { selection = it },
+                    )
                 }
                 5 -> Prompt(
                     question = "What favor will it grant you for the work?",
@@ -305,15 +251,7 @@ fun SummoningScreen(
                         } else if (!summoning) {
                             summoning = true
                             scope.launch {
-                                val visibleMinors = (0 until slotCount).mapNotNull { i ->
-                                    val title = minorTitleStates[i].value.trim()
-                                    if (title.isBlank()) null else PantheonRepository.NewMinorSpec(
-                                        title = title,
-                                        cadence = minorCadenceStates[i].value,
-                                        cadenceCount = minorCountStates[i].value,
-                                        cadenceDays = MinorQuest.parseDaysCsv(minorDaysStates[i].value),
-                                    )
-                                }
+                                val majorSpecs = selection.toMajorSpecs()
                                 // Resolve the face: the user's explicit pick,
                                 // or the deterministic default the preview
                                 // showed, so the daemon keeps what was seen.
@@ -330,8 +268,7 @@ fun SummoningScreen(
                                     archetype = archetype.trim(),
                                     voicePreset = voice,
                                     boonText = boon.trim(),
-                                    firstMajorTitle = majorTitle.trim(),
-                                    firstMinors = visibleMinors,
+                                    majors = majorSpecs,
                                     // Persist the chosen LifeTheme key, or
                                     // null when "Other" was picked.
                                     theme = pickedTheme?.key,

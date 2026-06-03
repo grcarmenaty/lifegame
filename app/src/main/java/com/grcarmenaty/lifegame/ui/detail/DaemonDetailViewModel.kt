@@ -150,6 +150,10 @@ class DaemonDetailViewModel(
         viewModelScope.launch { repository.setNotificationsEnabled(daemonId, enabled) }
     }
 
+    fun addMajorsFromLibrary(specs: List<PantheonRepository.NewMajorSpec>) {
+        viewModelScope.launch { specs.forEach { repository.addMajorFromCatalog(daemonId, it) } }
+    }
+
     fun addMajor(title: String) {
         viewModelScope.launch { repository.addMajor(daemonId, title.trim()) }
     }
