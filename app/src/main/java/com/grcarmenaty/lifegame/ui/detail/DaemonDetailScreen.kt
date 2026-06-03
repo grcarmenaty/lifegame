@@ -59,8 +59,15 @@ import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
+import com.grcarmenaty.lifegame.domain.catalog.QuestCatalog
 import com.grcarmenaty.lifegame.ui.common.FacePicker
 import com.grcarmenaty.lifegame.ui.common.VoicePresetPicker
+import com.grcarmenaty.lifegame.ui.summoning.MajorPickStep
+import com.grcarmenaty.lifegame.ui.summoning.MinorPickStep
+import com.grcarmenaty.lifegame.ui.summoning.SummonSelection
+import com.grcarmenaty.lifegame.ui.summoning.SummonSelectionSaver
+import com.grcarmenaty.lifegame.ui.summoning.toMajorSpecs
+import androidx.compose.foundation.layout.heightIn
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,6 +105,7 @@ fun DaemonDetailScreen(
     var showAddBoon by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteBoonId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showAddMajor by rememberSaveable { mutableStateOf(false) }
+    var showLibrary by rememberSaveable { mutableStateOf(false) }
     var addingMinorForMajor by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingChapterForMajor by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -224,6 +232,8 @@ fun DaemonDetailScreen(
                 title = "Quest history",
                 actionLabel = "+ Major",
                 onAction = { showAddMajor = true },
+                secondaryLabel = if (QuestCatalog.majorsFor(theme).isNotEmpty()) "+ Library" else null,
+                onSecondary = { showLibrary = true },
             )
             if (state.majors.isEmpty()) {
                 Text(
@@ -327,6 +337,17 @@ fun DaemonDetailScreen(
         )
     }
 
+    if (showLibrary) {
+        LibraryAddDialog(
+            theme = theme,
+            onDismiss = { showLibrary = false },
+            onConfirm = { specs ->
+                viewModel.addMajorsFromLibrary(specs)
+                showLibrary = false
+            },
+        )
+    }
+
     addingMinorForMajor?.let { majorId ->
         AddMinorDialog(
             onDismiss = { addingMinorForMajor = null },
@@ -379,7 +400,8 @@ fun DaemonDetailScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val voiceText = event.engineLine
+                    val voiceText = event.questLine
+                        ?: event.engineLine
                         ?: event.voicePreset.apotheosis(event.daemonId)
                     Text(
                         text = "“$voiceText”",
@@ -420,6 +442,8 @@ private fun SectionHeader(
     title: String,
     actionLabel: String,
     onAction: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -427,7 +451,12 @@ private fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(text = title, style = MaterialTheme.typography.headlineSmall)
-        TextButton(onClick = onAction) { Text(actionLabel) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (secondaryLabel != null && onSecondary != null) {
+                TextButton(onClick = onSecondary) { Text(secondaryLabel) }
+            }
+            TextButton(onClick = onAction) { Text(actionLabel) }
+        }
     }
 }
 
@@ -659,6 +688,46 @@ private fun AddBoonDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
+    )
+}
+
+@Composable
+private fun LibraryAddDialog(
+    theme: LifeTheme?,
+    onDismiss: () -> Unit,
+    onConfirm: (List<PantheonRepository.NewMajorSpec>) -> Unit,
+) {
+    var selection by rememberSaveable(stateSaver = SummonSelectionSaver) {
+        mutableStateOf(SummonSelection())
+    }
+    val canAdd = selection.majors.isNotEmpty() && selection.majors.all { it.minorCount > 0 }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selection.toMajorSpecs()) }, enabled = canAdd) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        title = { Text("Add from library") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                MajorPickStep(theme = theme, selection = selection, onChange = { selection = it })
+                if (selection.majors.isNotEmpty()) {
+                    HorizontalDivider()
+                    Text("Small acts", style = MaterialTheme.typography.titleMedium)
+                    MinorPickStep(selection = selection, onChange = { selection = it })
+                }
+            }
+        },
     )
 }
 

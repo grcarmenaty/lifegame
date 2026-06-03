@@ -62,6 +62,14 @@ data class MinorQuest(
      * completion; resets to 1 on rollover, increments otherwise.
      */
     val completionsThisWindow: Int = 0,
+    /**
+     * v0.0.14: stable id of the [com.grcarmenaty.lifegame.domain.catalog
+     * .QuestCatalog] minor this was picked from, or null for custom
+     * minors. Drives the quest-specific completion line (composed with
+     * the daemon's archetype frame); custom minors fall back to a
+     * generic per-archetype frame.
+     */
+    val templateId: String? = null,
 ) {
     /** Parsed view of [cadenceDays]. Empty when null/blank. */
     fun parsedCadenceDays(): Set<Int> = parseDaysCsv(cadenceDays)

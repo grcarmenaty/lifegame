@@ -16,6 +16,8 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
 import com.grcarmenaty.lifegame.domain.attention.AttentionConfig
 import com.grcarmenaty.lifegame.domain.attention.AttentionDecay
 import com.grcarmenaty.lifegame.domain.attention.AttentionMath
+import com.grcarmenaty.lifegame.domain.catalog.QuestCatalog
+import com.grcarmenaty.lifegame.domain.dialogue.QuestCompletion
 import com.grcarmenaty.lifegame.domain.calendar.HolidayCalendar
 import com.grcarmenaty.lifegame.domain.calendar.HolidayToken
 import com.grcarmenaty.lifegame.domain.dialogue.ConversationContext
@@ -414,6 +416,19 @@ class PantheonRepository(
         val cadence: String = MinorQuest.CADENCE_ONE_OFF,
         val cadenceCount: Int = 1,
         val cadenceDays: Set<Int> = emptySet(),
+        val weight: Int = 1,
+        val templateId: String? = null,
+    )
+
+    /**
+     * Authoring shape for one major + its minors. v0.0.14: a daemon can
+     * be summoned with several majors at once (each picked from the
+     * library or hand-written), so summoning takes a list of these.
+     */
+    data class NewMajorSpec(
+        val title: String,
+        val templateId: String? = null,
+        val minors: List<NewMinorSpec> = emptyList(),
     )
 
     suspend fun summonDaemon(
@@ -421,8 +436,7 @@ class PantheonRepository(
         archetype: String,
         voicePreset: VoicePreset,
         boonText: String,
-        firstMajorTitle: String,
-        firstMinors: List<NewMinorSpec>,
+        majors: List<NewMajorSpec>,
         theme: String? = null,
         face: String? = null,
     ): Long {
@@ -438,27 +452,52 @@ class PantheonRepository(
         val boonId = boonDao.insert(
             Boon(daemonId = daemonId, text = boonText, count = 0)
         )
+        majors.forEach { majorSpec ->
+            insertMajorWithMinors(daemonId, boonId, majorSpec)
+        }
+        return daemonId
+    }
+
+    /** Shared by summoning and the detail screen's "add from library". */
+    private suspend fun insertMajorWithMinors(
+        daemonId: Long,
+        boonId: Long?,
+        majorSpec: NewMajorSpec,
+    ): Long {
         val majorId = questDao.insertMajor(
             MajorQuest(
                 daemonId = daemonId,
-                title = firstMajorTitle,
-                thresholdCount = firstMinors.size.coerceAtLeast(1),
+                title = majorSpec.title,
+                thresholdCount = majorSpec.minors.size.coerceAtLeast(1),
                 wishBoonId = boonId,
                 wishRewardCount = 1,
+                templateId = majorSpec.templateId,
             )
         )
-        firstMinors.forEach { spec ->
+        majorSpec.minors.forEach { spec ->
             questDao.insertMinor(
                 MinorQuest(
                     majorQuestId = majorId,
                     title = spec.title,
                     cadence = spec.cadence,
+                    weight = spec.weight.coerceAtLeast(1),
                     cadenceCount = spec.cadenceCount.coerceAtLeast(1),
                     cadenceDays = MinorQuest.encodeDays(spec.cadenceDays),
+                    templateId = spec.templateId,
                 )
             )
         }
-        return daemonId
+        return majorId
+    }
+
+    /**
+     * Add a major (with its minors) from the quest library to an
+     * existing daemon — the detail screen's "Add from library" path.
+     * Wires the daemon's first boon as the wish reward, like [addMajor].
+     */
+    suspend fun addMajorFromCatalog(daemonId: Long, majorSpec: NewMajorSpec): Long {
+        val firstBoon = boonDao.getForDaemon(daemonId).firstOrNull()
+        return insertMajorWithMinors(daemonId, firstBoon?.id, majorSpec)
     }
 
     /**
@@ -479,9 +518,16 @@ class PantheonRepository(
      *  - MONTHLY → up to `cadenceCount` per local month
      *  - ONE_OFF → exactly 1, then `completed = true`
      */
-    suspend fun completeMinor(minorId: Long) {
-        val minor = questDao.getMinorById(minorId) ?: return
-        if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return
+    /**
+     * Returns the daemon's voiced completion line for this minor (the
+     * catalog quest's fragment composed with the archetype frame, or a
+     * generic per-archetype completion for custom minors) so the Daily
+     * screen can surface it in a snackbar. Returns null when the
+     * completion is rejected (already done / wrong day / window cap).
+     */
+    suspend fun completeMinor(minorId: Long): String? {
+        val minor = questDao.getMinorById(minorId) ?: return null
+        if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return null
         val now = System.currentTimeMillis()
 
         // WEEKLY + day-pinned: today must be a selected day to accept.
@@ -489,7 +535,7 @@ class PantheonRepository(
             val days = minor.parsedCadenceDays()
             if (days.isNotEmpty()) {
                 val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-                if (today !in days) return
+                if (today !in days) return null
             }
         }
 
@@ -498,7 +544,7 @@ class PantheonRepository(
         } ?: false
         val nextCountInWindow = if (isSameWindow) minor.completionsThisWindow + 1 else 1
         val maxThisWindow = minor.effectiveCount()
-        if (nextCountInWindow > maxThisWindow) return
+        if (nextCountInWindow > maxThisWindow) return null
 
         questDao.updateMinor(
             minor.copy(
@@ -508,7 +554,7 @@ class PantheonRepository(
             )
         )
 
-        val major = questDao.getMajorById(minor.majorQuestId) ?: return
+        val major = questDao.getMajorById(minor.majorQuestId) ?: return null
         if (!major.completed) {
             // Track-only: progressCount accumulates as informational
             // signal, but the major's `completed` flag is never flipped
@@ -517,7 +563,7 @@ class PantheonRepository(
         }
 
         val daemonId = major.daemonId
-        val daemon = daemonDao.getById(daemonId) ?: return
+        val daemon = daemonDao.getById(daemonId) ?: return null
         val state = dialogueStateStore.ensureDaemonState(daemonId)
         val voice = VoicePreset.fromKey(daemon.voicePreset)
         val cfg = AttentionConfig.resolve(state, voice)
@@ -538,6 +584,16 @@ class PantheonRepository(
         } else {
             dialogueDao.setMinorsCompletedSinceAccrual(daemonId, nextCounter)
         }
+
+        // Quest-specific completion line, voiced by the daemon's
+        // archetype. Catalog minors carry a fragment; custom minors fall
+        // back to a generic per-archetype completion. Rotation advances
+        // by day + in-window count (offset per quest) so a repeating
+        // minor doesn't read identically each time.
+        val fragment = QuestCatalog.minorFragment(minor.templateId)
+        val rotation = (now / 86_400_000L) + nextCountInWindow +
+            (minor.templateId?.hashCode()?.toLong() ?: minor.id)
+        return QuestCompletion.minorLine(voice, fragment, rotation)
     }
 
     /**
@@ -566,15 +622,26 @@ class PantheonRepository(
         emitLevelUpIfCrossed(daemon, before, after, state.lastSeenLevel)
 
         val engineLine = pickInline(daemon.id, LineCategory.APOTHEOSIS)
+        // Quest-specific apotheosis line for library majors, voiced by
+        // the archetype; null for custom majors (caller then uses the
+        // engine line / voice preset).
+        val voice = VoicePreset.fromKey(daemon.voicePreset)
+        val questFragment = QuestCatalog.majorFragment(major.templateId)
+        val questLine = QuestCompletion.majorLine(
+            voice,
+            questFragment,
+            state.majorsClosedTotal.toLong() + (major.templateId?.hashCode()?.toLong() ?: 0L),
+        )
         return ApotheosisEvent(
             daemonId = daemon.id,
             daemonName = daemon.name,
-            voicePreset = VoicePreset.fromKey(daemon.voicePreset),
+            voicePreset = voice,
             completedMajorTitle = major.title,
             newLevel = AttentionMath.levelFor(after),
             grantedBoonText = null,   // boons no longer come from major closure
             grantedBoonCount = 0,
             engineLine = engineLine,
+            questLine = questLine,
         )
     }
 
@@ -657,6 +724,7 @@ class PantheonRepository(
         weight: Int,
         cadenceCount: Int = 1,
         cadenceDays: Set<Int> = emptySet(),
+        templateId: String? = null,
     ): Boolean {
         val major = questDao.getMajorById(majorId) ?: return false
         if (major.completed) return false
@@ -668,6 +736,7 @@ class PantheonRepository(
                 weight = weight.coerceAtLeast(1),
                 cadenceCount = cadenceCount.coerceAtLeast(1),
                 cadenceDays = MinorQuest.encodeDays(cadenceDays),
+                templateId = templateId,
             )
         )
         return true
@@ -879,6 +948,12 @@ data class ApotheosisEvent(
     val grantedBoonCount: Int,
     /** Engine-selected apotheosis line, or null → caller falls back to voice preset. */
     val engineLine: String? = null,
+    /**
+     * v0.0.14: quest-specific apotheosis line for a closed library
+     * major (archetype frame × the major's fragment). Null for custom
+     * majors; UI prefers this over [engineLine] when present.
+     */
+    val questLine: String? = null,
 )
 
 /** Emitted when a daemon's computed level rises above [lastSeenLevel]. */

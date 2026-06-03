@@ -13,10 +13,14 @@ import com.grcarmenaty.lifegame.domain.VoicePreset
 import com.grcarmenaty.lifegame.domain.attention.AttentionMath
 import java.util.Calendar
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -80,6 +84,14 @@ class DailyViewModel(
 
     private val _spendPicker = MutableStateFlow<SpendPickerState?>(null)
     val spendPicker: StateFlow<SpendPickerState?> = _spendPicker
+
+    // Quest-specific completion line, surfaced as a transient snackbar on
+    // the Daily screen. Buffered + drop-oldest so rapid taps don't block.
+    private val _completionLine = MutableSharedFlow<String>(
+        extraBufferCapacity = 4,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val completionLine: SharedFlow<String> = _completionLine.asSharedFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<DailyState> = run {
@@ -152,12 +164,13 @@ class DailyViewModel(
 
     fun completeMinor(minorId: Long) {
         viewModelScope.launch {
-            repository.completeMinor(minorId)
-            // No apotheosis here — closing a major is user-driven
-            // (see DaemonDetailViewModel.completeMajor). Minor
-            // completions track progress but never auto-close.
-            // Boon-from-minors accrual happens inside repo.
-            // Level-up emission also inside repo (via SharedFlow).
+            // Repo returns the daemon's voiced completion line (or null
+            // if the tap was rejected — already done / window cap). No
+            // apotheosis here — closing a major is user-driven (see
+            // DaemonDetailViewModel.completeMajor). Boon accrual +
+            // level-up emission happen inside the repo.
+            val line = repository.completeMinor(minorId)
+            if (line != null) _completionLine.emit(line)
         }
     }
     fun dismissApotheosis() { _apotheosis.value = null }

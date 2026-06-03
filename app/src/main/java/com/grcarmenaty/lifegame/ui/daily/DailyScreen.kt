@@ -27,12 +27,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -60,6 +64,15 @@ fun DailyScreen(
     val boonGranted by viewModel.boonGranted.collectAsState()
     val picker by viewModel.spendPicker.collectAsState()
 
+    // Snackbar host for quest-specific completion lines.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.completionLine.collect { line ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar("“$line”")
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,7 +86,8 @@ fun DailyScreen(
                     }
                 },
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -138,9 +152,10 @@ fun DailyScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Engine-picked line if available; otherwise voice preset
-                    // template — see v0.0.6 dialogue plan.
-                    val voiceText = event.engineLine
+                    // Quest-specific line for library majors, else the
+                    // engine line, else the voice preset template.
+                    val voiceText = event.questLine
+                        ?: event.engineLine
                         ?: event.voicePreset.apotheosis(event.daemonId)
                     Text(
                         text = "“$voiceText”",

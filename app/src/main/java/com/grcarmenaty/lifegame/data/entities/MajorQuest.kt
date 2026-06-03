@@ -36,4 +36,12 @@ data class MajorQuest(
     val wishBoonId: Long? = null,
     val wishRewardCount: Int = 1,
     val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * v0.0.14: when this major was picked from the pre-authored
+     * [com.grcarmenaty.lifegame.domain.catalog.QuestCatalog], its stable
+     * catalog id — used to look up its quest-specific completion
+     * fragment for the apotheosis line. Null for user-authored majors,
+     * which fall back to the daemon's voice/engine line.
+     */
+    val templateId: String? = null,
 )

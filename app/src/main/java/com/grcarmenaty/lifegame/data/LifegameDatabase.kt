@@ -28,7 +28,7 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
         LineSeen::class, CooldownPlay::class, DaemonState::class,
         EpicChapter::class, PersonalDate::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -52,7 +52,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                        MIGRATION_7_8, MIGRATION_8_9,
+                        MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
                     )
                     .build()
                     .also { instance = it }
@@ -429,5 +429,20 @@ internal val MIGRATION_7_8 = object : Migration(7, 8) {
 internal val MIGRATION_8_9 = object : Migration(8, 9) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `daemons` ADD COLUMN `face` TEXT")
+    }
+}
+
+/**
+ * v9 → v10: quest library (v0.0.14). Adds a nullable `templateId` to
+ * both `major_quests` and `minor_quests` recording which pre-authored
+ * catalog entry a quest came from, so completion can surface its
+ * quest-specific line. Existing rows get NULL (user-authored), which
+ * falls back to the per-archetype voice line — visually unchanged.
+ * Additive ALTER, safe under SQLite.
+ */
+internal val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `major_quests` ADD COLUMN `templateId` TEXT")
+        db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `templateId` TEXT")
     }
 }
