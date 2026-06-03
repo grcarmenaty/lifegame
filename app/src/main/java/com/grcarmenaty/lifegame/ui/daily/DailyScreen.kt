@@ -35,10 +35,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grcarmenaty.lifegame.data.entities.Boon
+import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,6 +291,13 @@ private fun DaemonBlock(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
+                Icon(
+                    painter = painterResource(DaemonFaceSuggestions.faceForDaemon(block.daemon)),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(44.dp),
+                )
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = block.daemon.name,

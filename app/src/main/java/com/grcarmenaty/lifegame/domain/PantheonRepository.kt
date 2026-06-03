@@ -293,6 +293,7 @@ class PantheonRepository(
         name: String,
         archetype: String,
         voicePreset: VoicePreset,
+        face: String? = null,
     ) {
         val existing = daemonDao.getById(id) ?: return
         daemonDao.update(
@@ -300,6 +301,7 @@ class PantheonRepository(
                 name = name,
                 archetype = archetype,
                 voicePreset = voicePreset.name,
+                face = face,
             )
         )
     }
@@ -422,6 +424,7 @@ class PantheonRepository(
         firstMajorTitle: String,
         firstMinors: List<NewMinorSpec>,
         theme: String? = null,
+        face: String? = null,
     ): Long {
         val daemonId = daemonDao.insert(
             Daemon(
@@ -429,6 +432,7 @@ class PantheonRepository(
                 archetype = archetype,
                 voicePreset = voicePreset.name,
                 theme = theme,
+                face = face,
             )
         )
         val boonId = boonDao.insert(

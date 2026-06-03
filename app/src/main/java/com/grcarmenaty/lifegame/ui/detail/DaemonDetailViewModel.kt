@@ -121,9 +121,9 @@ class DaemonDetailViewModel(
     private val _apotheosis = MutableStateFlow<ApotheosisEvent?>(null)
     val apotheosis: StateFlow<ApotheosisEvent?> = _apotheosis
 
-    fun save(name: String, archetype: String, voicePreset: VoicePreset) {
+    fun save(name: String, archetype: String, voicePreset: VoicePreset, face: String?) {
         viewModelScope.launch {
-            repository.updateDaemon(daemonId, name.trim(), archetype.trim(), voicePreset)
+            repository.updateDaemon(daemonId, name.trim(), archetype.trim(), voicePreset, face)
             _saved.value = true
         }
     }

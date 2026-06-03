@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,19 +33,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.remember
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.DaemonFaceCatalog
 import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.DaemonNameSuggestions
 import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
 import com.grcarmenaty.lifegame.ui.common.CadencePicker
+import com.grcarmenaty.lifegame.ui.common.FacePicker
+import com.grcarmenaty.lifegame.ui.common.ThemePicker
 import com.grcarmenaty.lifegame.ui.common.VoicePresetPicker
 import kotlinx.coroutines.launch
 
@@ -72,6 +68,10 @@ fun SummoningScreen(
     // means the daemon will draw from that themed corpus.
     var themeKey by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
+    // v0.0.13: the user-chosen face's stable name. Null until they tap
+    // one in the chooser; on summon we resolve null to the deterministic
+    // default so what the preview showed is what the daemon keeps.
+    var faceKey by rememberSaveable { mutableStateOf<String?>(null) }
     var voiceKey by rememberSaveable { mutableStateOf(VoicePreset.GENTLE_MENTOR.name) }
     var majorTitle by rememberSaveable { mutableStateOf("") }
     var boon by rememberSaveable { mutableStateOf("") }
@@ -140,28 +140,23 @@ fun SummoningScreen(
                     helper = "Pick a theme — the daemon's dialogue is tuned to it. " +
                         "Or pick \"Other\" and write your own.",
                 ) {
-                    ThemeDropdown(
+                    ThemePicker(
                         selectedKey = themeKey,
                         onPick = { picked ->
                             themeKey = picked?.key ?: "OTHER"
-                            // Auto-fill the archetype text when a theme is
-                            // picked; user can still override below.
+                            // Themed daemons take the theme's archetype text
+                            // silently; only "Other" asks for free text.
                             archetype = picked?.archetypeText ?: ""
                         },
                     )
-                    if (themeKey == "OTHER" || themeKey.isNotBlank()) {
+                    if (themeKey == "OTHER") {
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
                             value = archetype,
                             onValueChange = { archetype = it },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text("e.g. my body, my craft, my finances") },
-                            label = {
-                                Text(
-                                    if (themeKey == "OTHER") "What it represents"
-                                    else "Override the default name (optional)"
-                                )
-                            },
+                            label = { Text("What it represents") },
                         )
                     }
                 }
@@ -172,16 +167,17 @@ fun SummoningScreen(
                     VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
                 }
                 2 -> Prompt(
-                    question = "Give it a name.",
-                    helper = "Tap a suggestion below, or write your own.",
+                    question = "Give it a name and a face.",
+                    helper = "Tap a name suggestion or write your own, then pick a face.",
                 ) {
                     val pickedTheme = LifeTheme.fromKey(themeKey)
                     val names = DaemonNameSuggestions.forPair(voice, pickedTheme)
                     // No daemon id yet at summoning; derive a stable variant
-                    // from the chosen pair so the preview stays consistent.
+                    // from the chosen pair so the default stays consistent.
                     val faceSeed = (voice.name + (pickedTheme?.key ?: "OTHER"))
                         .hashCode().toLong()
-                    val faceRes = DaemonFaceSuggestions.faceFor(voice, pickedTheme, faceSeed)
+                    val selectedRes = DaemonFaceCatalog.resForName(faceKey)
+                        ?: DaemonFaceSuggestions.faceFor(voice, pickedTheme, faceSeed)
                     if (names.isNotEmpty()) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -190,12 +186,6 @@ fun SummoningScreen(
                         ) {
                             names.forEach { suggestion ->
                                 OutlinedButton(onClick = { name = suggestion }) {
-                                    Icon(
-                                        painter = painterResource(faceRes),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Spacer(Modifier.width(8.dp))
                                     Text(suggestion)
                                 }
                             }
@@ -207,6 +197,19 @@ fun SummoningScreen(
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Anything you like.") },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Face",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FacePicker(
+                        preset = voice,
+                        theme = pickedTheme,
+                        selectedRes = selectedRes,
+                        onSelect = { faceName, _ -> faceKey = faceName },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 3 -> Prompt(
@@ -311,6 +314,17 @@ fun SummoningScreen(
                                         cadenceDays = MinorQuest.parseDaysCsv(minorDaysStates[i].value),
                                     )
                                 }
+                                // Resolve the face: the user's explicit pick,
+                                // or the deterministic default the preview
+                                // showed, so the daemon keeps what was seen.
+                                val pickedTheme = LifeTheme.fromKey(themeKey)
+                                val resolvedFace = faceKey ?: run {
+                                    val seed = (voice.name + (pickedTheme?.key ?: "OTHER"))
+                                        .hashCode().toLong()
+                                    DaemonFaceCatalog.nameForRes(
+                                        DaemonFaceSuggestions.faceFor(voice, pickedTheme, seed)
+                                    )
+                                }
                                 repository.summonDaemon(
                                     name = name.trim(),
                                     archetype = archetype.trim(),
@@ -320,7 +334,8 @@ fun SummoningScreen(
                                     firstMinors = visibleMinors,
                                     // Persist the chosen LifeTheme key, or
                                     // null when "Other" was picked.
-                                    theme = LifeTheme.fromKey(themeKey)?.key,
+                                    theme = pickedTheme?.key,
+                                    face = resolvedFace,
                                 )
                                 onSummoned()
                             }
@@ -354,48 +369,3 @@ private fun Prompt(
     }
 }
 
-/**
- * Dropdown of common [LifeTheme] options + an explicit "Other" entry.
- * The button label reflects the current selection; "Other" surfaces
- * the free-text archetype field above.
- */
-@Composable
-private fun ThemeDropdown(
-    selectedKey: String,
-    onPick: (LifeTheme?) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val theme = LifeTheme.fromKey(selectedKey)
-    val label = when {
-        theme != null -> theme.display
-        selectedKey == "OTHER" -> "Other (write your own)"
-        else -> "Choose a theme…"
-    }
-    Box {
-        OutlinedButton(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(label) }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            LifeTheme.entries.forEach { entry ->
-                DropdownMenuItem(
-                    text = { Text(entry.display) },
-                    onClick = {
-                        expanded = false
-                        onPick(entry)
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text("Other (write your own)") },
-                onClick = {
-                    expanded = false
-                    onPick(null)
-                },
-            )
-        }
-    }
-}
