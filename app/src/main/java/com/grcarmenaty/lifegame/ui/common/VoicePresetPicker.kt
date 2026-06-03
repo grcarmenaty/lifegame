@@ -37,19 +37,28 @@ fun VoicePresetPicker(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        PresetCard(preset = selected, isSelected = true, onClick = null)
-
-        if (expanded) {
+        if (!expanded) {
+            // Collapsed: only the chosen preset is rendered, in its highlighted
+            // form. The toggle below brings the full list back.
+            PresetCard(preset = selected, isSelected = true, onClick = null)
+        } else {
+            // Expanded: every preset in its natural enum order, with the
+            // current selection highlighted IN PLACE. Earlier the picker
+            // re-pinned the selected card to the top, which read as the
+            // list jumping back to the start each time you picked from
+            // further down. Keep order stable; let the highlight move.
             VoicePreset.entries.forEach { preset ->
-                if (preset == selected) return@forEach
+                val isSel = preset == selected
                 PresetCard(
                     preset = preset,
-                    isSelected = false,
-                    onClick = {
-                        onSelect(preset)
-                        // Auto-collapse on pick so the picker snaps back to
-                        // the new selection without an extra tap.
-                        if (collapsible) expanded = false
+                    isSelected = isSel,
+                    onClick = if (isSel) null else {
+                        {
+                            onSelect(preset)
+                            // Auto-collapse on pick so the picker snaps back
+                            // to the new selection without an extra tap.
+                            if (collapsible) expanded = false
+                        }
                     },
                 )
             }

@@ -12,4 +12,10 @@ data class Daemon(
     val archetype: String,
     val voicePreset: String,
     val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * v0.0.12: the [com.grcarmenaty.lifegame.domain.LifeTheme.key]
+     * that scopes the daemon's dialogue corpus. Null = "Other" was
+     * picked; the engine falls back to the base per-archetype lines.
+     */
+    val theme: String? = null,
 )

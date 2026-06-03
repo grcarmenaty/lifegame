@@ -295,8 +295,8 @@ fun DaemonDetailScreen(
     addingMinorForMajor?.let { majorId ->
         AddMinorDialog(
             onDismiss = { addingMinorForMajor = null },
-            onAdd = { title, cadence, weight ->
-                viewModel.addMinor(majorId, title, cadence, weight)
+            onAdd = { title, cadence, cadenceCount, cadenceDays, weight ->
+                viewModel.addMinor(majorId, title, cadence, cadenceCount, cadenceDays, weight)
                 addingMinorForMajor = null
             },
         )
@@ -551,11 +551,16 @@ private fun MajorCard(
 private fun MinorRow(minor: MinorQuest, onDelete: () -> Unit) {
     val mark = when {
         minor.completed -> "✓"
-        minor.cadence == MinorQuest.CADENCE_DAILY -> "↻"
-        else -> "○"
+        minor.cadence == MinorQuest.CADENCE_ONE_OFF -> "○"
+        else -> "↻"
     }
     val date = minor.lastCompletedAt?.let { dateFormatter.format(Date(it)) }
     val weightSuffix = if (minor.weight > 1) "  +${minor.weight}" else ""
+    val cadenceLabel = MinorQuest.cadenceLongLabel(
+        cadence = minor.cadence,
+        count = minor.cadenceCount,
+        days = minor.parsedCadenceDays(),
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -568,13 +573,11 @@ private fun MinorRow(minor: MinorQuest, onDelete: () -> Unit) {
                 text = "$mark  ${minor.title}$weightSuffix",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            if (date != null) {
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = if (date != null) "$cadenceLabel  ·  $date" else cadenceLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Default.Delete, contentDescription = "Delete minor")
@@ -661,21 +664,24 @@ private fun AddMajorDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddMinorDialog(
     onDismiss: () -> Unit,
-    onAdd: (title: String, cadence: String, weight: Int) -> Unit,
+    onAdd: (title: String, cadence: String, cadenceCount: Int, cadenceDays: Set<Int>, weight: Int) -> Unit,
 ) {
     var title by rememberSaveable { mutableStateOf("") }
     var cadence by rememberSaveable { mutableStateOf(MinorQuest.CADENCE_ONE_OFF) }
+    var cadenceCount by rememberSaveable { mutableStateOf(1) }
+    var cadenceDaysCsv by rememberSaveable { mutableStateOf("") }
     var weightText by rememberSaveable { mutableStateOf("1") }
     val weight = weightText.toIntOrNull()?.coerceIn(1, 9) ?: 1
+    val days = MinorQuest.parseDaysCsv(cadenceDaysCsv)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add a minor quest") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -687,18 +693,14 @@ private fun AddMinorDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    MinorQuest.ALL_CADENCES.forEach { c ->
-                        FilterChip(
-                            selected = cadence == c,
-                            onClick = { cadence = c },
-                            label = { Text(MinorQuest.cadenceLabel(c)) },
-                        )
-                    }
-                }
+                com.grcarmenaty.lifegame.ui.common.CadencePicker(
+                    cadence = cadence,
+                    cadenceCount = cadenceCount,
+                    cadenceDays = days,
+                    onCadenceChange = { cadence = it },
+                    onCadenceCountChange = { cadenceCount = it },
+                    onCadenceDaysChange = { cadenceDaysCsv = MinorQuest.encodeDays(it) ?: "" },
+                )
                 OutlinedTextField(
                     value = weightText,
                     onValueChange = { v -> weightText = v.filter { it.isDigit() }.take(1) },
@@ -709,7 +711,7 @@ private fun AddMinorDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(title, cadence, weight) },
+                onClick = { onAdd(title, cadence, cadenceCount, days, weight) },
                 enabled = title.isNotBlank(),
             ) { Text("Add") }
         },

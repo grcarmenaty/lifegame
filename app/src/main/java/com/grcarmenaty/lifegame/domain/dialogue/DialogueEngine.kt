@@ -5,8 +5,14 @@ package com.grcarmenaty.lifegame.domain.dialogue
  * `ConversationContext` and picks the highest-ranked eligible line.
  *
  * Ordering inside the surviving tier:
- *   lifeEvent desc -> recencyKey asc -> priority desc
- *   -> playCount asc (Hades soft-exhaust) -> lastPlayedAt asc
+ *   lifeEvent desc -> recencyKey asc -> themed-first
+ *   -> priority desc -> playCount asc (Hades soft-exhaust)
+ *   -> lastPlayedAt asc
+ *
+ * "Themed-first" (v0.0.12) ensures that when both a themed and a base
+ * line are eligible at the same tier/recency, the themed variant wins.
+ * A base life-event still beats a themed filler because lifeEvent and
+ * recency rank above the theme tiebreaker.
  *
  * Pure CPU over an in-memory list — safe on the caller's dispatcher.
  */
@@ -25,6 +31,10 @@ class DialogueEngine(private val corpus: List<DialogueLine>) {
             .filter { it.category == category }
             .filter { !it.deprecated }
             .filter { it.archetype == ctx.archetypeKey || it.archetype == "ANY" }
+            // v0.0.12: theme-tagged lines only fire for daemons with
+            // a matching theme. Untagged lines (theme = null) are the
+            // base corpus and stay eligible for every daemon.
+            .filter { it.theme == null || it.theme == ctx.theme }
             .filter { surfaceMatches(it.preferredSurface, surface) }
             .filter { it.requires.all(played::contains) }
             .filter { it.forbids.none(played::contains) }
@@ -42,6 +52,7 @@ class DialogueEngine(private val corpus: List<DialogueLine>) {
         return byTier[tier]!!.sortedWith(
             compareByDescending<DialogueLine> { it.lifeEvent }
                 .thenBy { it.recencyKey.ordinal }
+                .thenByDescending { it.theme != null }   // themed wins ties
                 .thenByDescending { it.priority }
                 .thenBy { state.playCounts[it.id] ?: 0 }
                 .thenBy { state.lastPlayedAt[it.id] ?: 0L }
