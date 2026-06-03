@@ -1,0 +1,71 @@
+<!-- Drill Sergeant × Exercise, variant 2 "Thunder Drill" (asymmetric):
+     helmet-jaw head, one raised brow, shouting mouth, bold lightning bolt
+     off the right, flexed-arm chevron lower-left, motion ticks upper-left. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- helmet + jaw head -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M12,21 Q12,9 24,8 Q36,9 36,22 L33,33 L25,38 L16,32 Z" />
+    <!-- cap brim -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M11,20 L37,21" />
+    <!-- brows: left raised (bark), right stern -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M14.5,22 L20,24" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M27,25 L32,24" />
+    <!-- hard eyes -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M18,27 m -1.0,0 a 1.0,1.0 0 1 0 2.0,0 a 1.0,1.0 0 1 0 -2.0,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M29,26.5 m -1.0,0 a 1.0,1.0 0 1 0 2.0,0 a 1.0,1.0 0 1 0 -2.0,0" />
+    <!-- shouting mouth -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.3"
+        android:strokeLineJoin="round"
+        android:pathData="M20,33 Q24,30.5 28,33 Q24,37 20,33 Z" />
+    <!-- bold lightning bolt, off the right -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:pathData="M37,11 L33,22 L38,21 L34,33" />
+    <!-- flexed-arm chevron, lower-left -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M8,35 L13,29 L11,36" />
+    <!-- motion ticks, upper-left -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round"
+        android:pathData="M9,13 L13,11 M8,17 L12,16" />
+</vector>

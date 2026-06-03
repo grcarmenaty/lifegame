@@ -1,0 +1,89 @@
+<!-- Drill Sergeant × Exercise, variant 3 "Last Rep" (asymmetric):
+     head leaning forward, steep brim, determined brows, narrowed effort
+     eyes, gritted teeth, sweat beads off the right, sprint lines lower-right,
+     forward-drive arrow upper-right. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- head leaning forward -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M13,24 Q11,11 23,9 Q35,8 37,20 L34,31 L25,37 L16,33 Z" />
+    <!-- steep cap brim -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M12,22 L38,18" />
+    <!-- determined brows -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M16,25 L21,26" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M28,25.5 L33,24" />
+    <!-- narrowed effort eyes -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:pathData="M17,28 L20.5,28.5" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:pathData="M27.5,28 L31,27.5" />
+    <!-- gritted teeth -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M18,33 L24,33.5 L29,32.5" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="0.8"
+        android:strokeLineCap="round"
+        android:pathData="M22,32.6 L22,34" />
+    <!-- sweat beads off the right -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M40,16 m -0.9,0 a 0.9,0.9 0 1 0 1.8,0 a 0.9,0.9 0 1 0 -1.8,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M42,22 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M39,27 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <!-- sprint motion lines, lower-right -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M29,38 L36,42 M32,36 L40,39" />
+    <!-- forward-drive arrow, upper-right -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M34,9 L41,7 M38,5.5 L41,7 L39.5,10" />
+</vector>
