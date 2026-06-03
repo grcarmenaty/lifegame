@@ -1,79 +1,61 @@
-<!-- Drill Sergeant × Exercise, variant 1 "Cadence" (asymmetric):
-     helmet-jaw head, cap brim, stern uneven brows, hard eyes, snarl,
-     rank chevrons above, speed lines streaming right, spark lower-left. -->
+<!-- Drill Sergeant × Exercise, variant 1 "Cadence" (symmetric, abstract):
+     pointed-shield head, stern slash brows, central rank-chevron emblem,
+     rank chevron above, radiating motion lines flanking. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
-    <!-- helmet + jaw head (asymmetric chin) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
         android:strokeWidth="1.5"
         android:strokeLineJoin="round"
-        android:pathData="M12,22 Q12,9 24,8 Q36,9 36,21 L32,33 L23,38 L15,32 Z" />
-    <!-- cap brim, tilted -->
+        android:pathData="M24,7 L37,15 L37,28 L24,41 L11,28 L11,15 Z" />
+    <!-- stern slash brows (converging, hard glare) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
-        android:strokeWidth="2.0"
+        android:strokeWidth="1.6"
         android:strokeLineCap="round"
-        android:pathData="M11,21 L37,19" />
-    <!-- stern brows, right steeper -->
+        android:pathData="M15,18 L21,21" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
-        android:strokeWidth="1.4"
+        android:strokeWidth="1.6"
         android:strokeLineCap="round"
-        android:pathData="M15,24 L20,25.5" />
+        android:pathData="M33,18 L27,21" />
+    <!-- central rank-chevron emblem (the signature mark) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
-        android:pathData="M27,25.5 L33,22.5" />
-    <!-- hard eyes -->
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M18,27.5 m -1.0,0 a 1.0,1.0 0 1 0 2.0,0 a 1.0,1.0 0 1 0 -2.0,0" />
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M30,27 m -1.0,0 a 1.0,1.0 0 1 0 2.0,0 a 1.0,1.0 0 1 0 -2.0,0" />
-    <!-- snarl mouth, asymmetric -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
+        android:strokeWidth="1.5"
         android:strokeLineJoin="round"
-        android:pathData="M17,33 L25,32 L31,34" />
-    <!-- rank chevrons above the head -->
+        android:pathData="M18,25 L24,28 L30,25" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M18,29.5 L24,32.5 L30,29.5" />
+    <!-- rank chevron above the head -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
         android:strokeWidth="1.3"
         android:strokeLineJoin="round"
         android:pathData="M19,6 L24,3 L29,6" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="1.1"
-        android:strokeLineJoin="round"
-        android:pathData="M20,9 L24,6.5 L28,9" />
-    <!-- speed lines streaming right -->
+    <!-- radiating motion lines, symmetric -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
         android:strokeWidth="1.2"
         android:strokeLineCap="round"
-        android:pathData="M38,16 L46,14 M39,21 L47,21 M38,26 L45,28" />
-    <!-- spark, lower-left -->
+        android:pathData="M9,20 L4,19 M9,25 L4,26" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
-        android:strokeWidth="1.1"
+        android:strokeWidth="1.2"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M7,31 L10,30 L8.5,33 L11.5,32" />
+        android:pathData="M39,20 L44,19 M39,25 L44,26" />
 </vector>
