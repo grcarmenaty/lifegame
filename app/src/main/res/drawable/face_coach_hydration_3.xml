@@ -1,0 +1,37 @@
+<!-- coach x hydration, variant 3 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,6 L38,17 L33,38 L15,38 L10,17 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:pathData="M16,28 L24,21 L32,28" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M24,14.4 L24,17.6 M22.4,16 L25.6,16" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineJoin="round"
+        android:pathData="M24,1.5 C26.5,5.5 28,7.5 24,9 C20,7.5 21.5,5.5 24,1.5 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M13,40 Q17,37 21,40 Q25,43 29,40 Q33,37 35,40" />
+</vector>

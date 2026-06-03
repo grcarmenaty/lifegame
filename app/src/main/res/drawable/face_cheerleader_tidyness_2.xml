@@ -1,0 +1,43 @@
+<!-- cheerleader x tidyness, variant 2 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,12 C31,12 36,17 36,24 C36,31 31,36 24,36 C17,36 12,31 12,24 C12,17 17,12 24,12 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M24,9 L24,6 M24,42 L24,39 M9,24 L6,24 M39,24 L42,24 M14,14 L12,12 M34,14 L36,12 M14,34 L12,36 M34,34 L36,36" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M24,15.8 L24,20.2 M21.8,18 L26.2,18" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M18,26 m -0.9,0 a 0.9,0.9 0 1 0 1.8,0 a 0.9,0.9 0 1 0 -1.8,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M30,26 m -0.9,0 a 0.9,0.9 0 1 0 1.8,0 a 0.9,0.9 0 1 0 -1.8,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M16,41 Q24,38 32,41" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M10,12 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M38,12 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+</vector>

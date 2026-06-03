@@ -1,0 +1,40 @@
+<!-- oracle x hydration, variant 3 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,7 L37,24 L24,41 L11,24 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M17,23 Q24,17.5 31,23 Q24,28.5 17,23 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M24,23 m -1.4,0 a 1.4,1.4 0 1 0 2.8,0 a 1.4,1.4 0 1 0 -2.8,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M16,23 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M32,23 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineJoin="round"
+        android:pathData="M24,1.5 C26.5,5.5 28,7.5 24,9 C20,7.5 21.5,5.5 24,1.5 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M13,40 Q17,37 21,40 Q25,43 29,40 Q33,37 35,40" />
+</vector>

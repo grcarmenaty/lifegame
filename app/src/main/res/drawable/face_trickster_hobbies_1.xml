@@ -1,0 +1,46 @@
+<!-- trickster x hobbies, variant 1 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M11,18 Q12,7 19,12 Q22,14 24,14 Q26,14 29,12 Q36,7 37,18 Q39,31 24,41 Q9,31 11,18 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M16,22 L21,20" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M32,22 L27,20" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M24,29 m -0.8,0 a 0.8,0.8 0 1 0 1.6,0 a 0.8,0.8 0 1 0 -1.6,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9,12 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M39,12 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,35 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M36,35 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M24,2.2 L24,5.8 M22.2,4 L25.8,4" />
+</vector>

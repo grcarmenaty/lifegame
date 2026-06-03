@@ -1,0 +1,40 @@
+<!-- trickster x sleep, variant 2 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M11,18 Q12,7 19,12 Q22,14 24,14 Q26,14 29,12 Q36,7 37,18 Q39,31 24,41 Q9,31 11,18 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineJoin="round"
+        android:pathData="M19,20 L21,22 L19,24 L17,22 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineJoin="round"
+        android:pathData="M29,20 L31,22 L29,24 L27,22 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M24,29 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round"
+        android:pathData="M7,14.4 L7,17.6 M5.4,16 L8.6,16" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round"
+        android:pathData="M41,14.4 L41,17.6 M39.4,16 L42.6,16" />
+</vector>

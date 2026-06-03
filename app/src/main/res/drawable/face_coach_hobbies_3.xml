@@ -1,0 +1,49 @@
+<!-- coach x hobbies, variant 3 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,6 L38,17 L33,38 L15,38 L10,17 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:pathData="M16,28 L24,21 L32,28" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M24,14.4 L24,17.6 M22.4,16 L25.6,16" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9,12 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M39,12 m -0.7,0 a 0.7,0.7 0 1 0 1.4,0 a 0.7,0.7 0 1 0 -1.4,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,35 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M36,35 m -0.6,0 a 0.6,0.6 0 1 0 1.2,0 a 0.6,0.6 0 1 0 -1.2,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineJoin="round"
+        android:pathData="M5,21 A2,2 0 1 0 5,25 A2,2 0 1 0 5,21 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineJoin="round"
+        android:pathData="M41,21 L45,21 L43,25 Z" />
+</vector>

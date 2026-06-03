@@ -1,0 +1,40 @@
+<!-- gentle_mentor x digital, variant 1 (generated) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,7 C32,7 36,14 36,23 C36,33 30,41 24,41 C18,41 12,33 12,23 C12,14 16,7 24,7 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:pathData="M16,22 Q19,24.5 22,22" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:pathData="M26,22 Q29,24.5 32,22" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M24,16 m -0.9,0 a 0.9,0.9 0 1 0 1.8,0 a 0.9,0.9 0 1 0 -1.8,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M5,27 L5,25 M8,27 L8,22 M11,27 L11,19" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M43,27 L43,25 M40,27 L40,22 M37,27 L37,19" />
+</vector>
