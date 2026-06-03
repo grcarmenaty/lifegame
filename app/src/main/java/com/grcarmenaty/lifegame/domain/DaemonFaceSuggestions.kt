@@ -1,18 +1,23 @@
 package com.grcarmenaty.lifegame.domain
 
 /**
- * Face-like icons (kaomoji) per (voice-preset, life-theme) cell — at
- * least three per combination, drawn in the preset's mood.
+ * Face-like icons per (voice-preset, life-theme) cell — at least three
+ * per combination, drawn from a 12-deep portrait-emoji pool per
+ * archetype.
  *
- * Each preset has a pool of distinct face variants in its voice; the
- * triple returned for a given theme rotates through the pool by the
+ * The pool is character / face / figure emoji rather than kaomoji so
+ * each chip reads as a small portrait rather than a punctuation face.
+ * The triple returned for a given theme rotates the pool by the
  * theme's enum index so adjacent themes within the same archetype
- * surface different faces. Pool size (12) is larger than the chip
- * count (3) so every cell has a usable mix.
+ * surface different portraits.
  *
- * Kaomoji rather than emoji bitmaps because they're text — they cost
- * nothing, render through the existing string pipeline, and survive
- * the JSON backup/restore round-trip with no extra plumbing.
+ * Emoji rather than drawable resources because they cost nothing,
+ * render natively on every Android 8+ device through the existing
+ * string pipeline, and survive the JSON backup/restore round-trip
+ * with no extra plumbing. Drop-in bespoke silhouette art would mean
+ * shipping ~120 vector drawables and switching the return type to
+ * resource IDs — worth doing once the asset set exists, but out of
+ * scope here.
  */
 object DaemonFaceSuggestions {
 
@@ -28,54 +33,44 @@ object DaemonFaceSuggestions {
 
     private val POOLS: Map<VoicePreset, List<String>> = mapOf(
         VoicePreset.DRILL_SERGEANT to listOf(
-            "(¬_¬)", "(ಠ_ಠ)", "(◣_◢)", "(◣д◢)", "(-_-)凸",
-            "(눈‸눈)", "(╬ಠ益ಠ)", ">:|", "(¬‿¬)凸", "(-‿-)ゞ",
-            "(눈_눈)", "(¬_¬;)",
+            "💂‍♂️", "💂‍♀️", "👮‍♂️", "👮‍♀️", "🥷", "🤺",
+            "🧐", "😠", "😡", "🤬", "🥸", "👨‍✈️",
         ),
         VoicePreset.COACH to listOf(
-            "(•̀ᴗ•́)", "(ง •̀_•́)ง", "(>‿◠)✌", "ᕦ(ò_óˇ)ᕤ", "(ᗒᗨᗕ)",
-            "(´•‿•`)", "(•‿•)ゞ", "(•́ω•̀)", "(•̀⤙•́)", "(ง'̀-'́)ง",
-            "(•̀_•́)", "(>_<)9",
+            "👨‍🏫", "👩‍🏫", "🏃‍♂️", "🏃‍♀️", "🤾‍♂️", "🤾‍♀️",
+            "⛹️‍♂️", "⛹️‍♀️", "🏋️‍♂️", "🏋️‍♀️", "🏊‍♂️", "🏌️‍♂️",
         ),
         VoicePreset.HERMIT to listOf(
-            "(˘◡˘)", "(-‿-)", "(•‿•)", "ʕ•ᴥ•ʔ", "(◡‿◡)",
-            "(-_-)", "(・_・)", "(◞‸◟)", "(¯﹃¯)", "(˘•_•˘)",
-            "ʕ-ᴥ-ʔ", "(˘ω˘)",
+            "🧙‍♂️", "🧙‍♀️", "👴", "👵", "🧓", "🧘‍♂️",
+            "🧘‍♀️", "🦉", "🐢", "🦫", "🐉", "🛖",
         ),
         VoicePreset.POET to listOf(
-            "(˘◡˘)", "(◕‿◕✿)", "٩(◕‿◕)۶", "(◡‿◡✿)", "(˘ω˘)",
-            "(◔‿◔)", "(✿◕‿◕)", "(◠‿◠✿)", "(◍•ᴗ•◍)", "(⌒‿⌒)",
-            "(♡‿♡)", "(◔◡◔)",
+            "🎭", "👨‍🎨", "👩‍🎨", "🧚‍♂️", "🧚‍♀️", "👨‍🎤",
+            "👩‍🎤", "🧑‍🎨", "🪶", "📜", "🌹", "🪐",
         ),
         VoicePreset.THERAPIST to listOf(
-            "(◕‿◕)", "(◠‿◠)", "(˘◡˘)", "(・◡・)", "(◡‿◡)",
-            "(^‿^)", "(◖ω◗)", "(◍•ᴗ•◍)", "(◡‿◡✿)", "(◕ᴗ◕)",
-            "(´◡`)", "(◠‿◠)♡",
+            "👩‍⚕️", "👨‍⚕️", "🧑‍⚕️", "🫂", "🤝", "🤲",
+            "💚", "🌸", "🌿", "🕊️", "🧘‍♀️", "🪷",
         ),
         VoicePreset.GENTLE_MENTOR to listOf(
-            "(◡‿◡)", "(˘◡˘)", "(•‿•)", "(◠ω◠)", "(◠‿◠)",
-            "(◕‿◕)", "(◕ᴗ◕)", "(´◡`)", "(◍•ᴗ•◍)", "(⌒‿⌒)",
-            "(◠ᴗ◠)", "(^_^)",
+            "👨‍🏫", "👩‍🏫", "🧑‍🏫", "👴", "👵", "🧓",
+            "👩‍🦳", "👨‍🦳", "🤝", "📚", "🌱", "🪴",
         ),
         VoicePreset.ORACLE to listOf(
-            "(◉_◉)", "(⊙_⊙)", "(☉‿☉)", "ʘ‿ʘ", "(◑▂◐)",
-            "(◕‿◕)✧", "(¬_¬✧)", "(◔_◔)", "(∗`▿´∗)", "(◐‿◑)",
-            "(◕ᴗ◕✧)", "(⊙‿⊙)",
+            "🔮", "👁️", "🌙", "🧙‍♀️", "🧙‍♂️", "🧞‍♀️",
+            "🧞‍♂️", "✨", "🃏", "🌟", "🪬", "🪐",
         ),
         VoicePreset.CHEERLEADER to listOf(
-            "(＾▽＾)", "٩(^‿^)۶", "(★‿★)", "(≧◡≦)", "(◕‿◕)♡",
-            "(☆▽☆)", "٩(◕‿◕)۶", "(✿◠‿◠)", "(＾◡＾)", "ヽ(>‿<)ノ",
-            "(≧▽≦)", "(◕‿◕)✿",
+            "🤸‍♀️", "🤸‍♂️", "📣", "🎉", "🥳", "💃",
+            "🕺", "⭐", "🌟", "✨", "🎊", "🌈",
         ),
         VoicePreset.STOIC to listOf(
-            "(-_-)", "(¬_¬)", "(◔_◔)", "(◕_◕)", "ಠ_ಠ",
-            "(・ω・)", "(¬‿¬)", "(-‿-)", "(◑_◐)", "(¬_¬¬)",
-            "(-_- )", "(._.)",
+            "🗿", "🏛️", "📜", "⚖️", "⛰️", "🪨",
+            "🦅", "🧐", "👨‍🦳", "👴", "🛡️", "🏺",
         ),
         VoicePreset.TRICKSTER to listOf(
-            "(¬‿¬)", "(◕‿↼)", "(≖‿≖)", "(◑‿◐)", ">:3",
-            "(^_<)~☆", "(≧ω≦)", "(¬‿¬✿)", "( ͡° ͜ʖ ͡°)", "(¬‿¬)b",
-            "(◕ ω ◕)", "(≧◡≦)",
+            "🃏", "🦊", "🎭", "😼", "🌀", "🧚‍♂️",
+            "🦝", "👻", "🤡", "😏", "😈", "🥷",
         ),
     )
 }
