@@ -2,6 +2,8 @@ package com.grcarmenaty.lifegame.ui.summoning
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +39,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.remember
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.DaemonNameSuggestions
 import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.VoicePreset
@@ -47,7 +50,7 @@ import kotlinx.coroutines.launch
 private const val MAX_MINOR_SLOTS = 7
 private const val INITIAL_MINOR_SLOTS = 3
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SummoningScreen(
     repository: PantheonRepository,
@@ -92,8 +95,8 @@ fun SummoningScreen(
     val anyMinor = (0 until slotCount).any { minorTitleStates[it].value.isNotBlank() }
     val canAdvance = when (step) {
         0 -> archetype.isNotBlank()
-        1 -> name.isNotBlank()
-        2 -> true
+        1 -> true
+        2 -> name.isNotBlank()
         3 -> majorTitle.isNotBlank()
         4 -> anyMinor
         5 -> boon.isNotBlank()
@@ -159,21 +162,39 @@ fun SummoningScreen(
                     }
                 }
                 1 -> Prompt(
-                    question = "Give it a name.",
-                    helper = "Anything you like. It will speak to you under this name.",
-                ) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. Athleta, Sage, Hearth") },
-                    )
-                }
-                2 -> Prompt(
                     question = "How does it speak?",
                     helper = "Pick a voice. You can override individual lines later.",
                 ) {
                     VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
+                }
+                2 -> Prompt(
+                    question = "Give it a name.",
+                    helper = "Tap a suggestion below, or write your own.",
+                ) {
+                    val suggestions = DaemonNameSuggestions.forPair(
+                        voice,
+                        LifeTheme.fromKey(themeKey),
+                    )
+                    if (suggestions.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            suggestions.forEach { suggestion ->
+                                OutlinedButton(onClick = { name = suggestion }) {
+                                    Text(suggestion)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Anything you like.") },
+                    )
                 }
                 3 -> Prompt(
                     question = "What's one thing it wants from you in the next month?",
