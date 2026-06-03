@@ -422,5 +422,13 @@ object DialogueCorpus {
             .HermitHobbiesLines.all,
         com.grcarmenaty.lifegame.domain.dialogue.lines.themed
             .HermitOutdoorsLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitDigitalLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitAdminLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitRecoveryLines.all,
+        com.grcarmenaty.lifegame.domain.dialogue.lines.themed
+            .HermitBoundariesLines.all,
     ).flatten()
 }
