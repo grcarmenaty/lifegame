@@ -39,6 +39,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.remember
 import com.grcarmenaty.lifegame.data.entities.MinorQuest
+import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.DaemonNameSuggestions
 import com.grcarmenaty.lifegame.domain.LifeTheme
 import com.grcarmenaty.lifegame.domain.PantheonRepository
@@ -171,17 +172,20 @@ fun SummoningScreen(
                     question = "Give it a name.",
                     helper = "Tap a suggestion below, or write your own.",
                 ) {
-                    val suggestions = DaemonNameSuggestions.forPair(
-                        voice,
-                        LifeTheme.fromKey(themeKey),
-                    )
-                    if (suggestions.isNotEmpty()) {
+                    val pickedTheme = LifeTheme.fromKey(themeKey)
+                    val names = DaemonNameSuggestions.forPair(voice, pickedTheme)
+                    val faces = DaemonFaceSuggestions.forPair(voice, pickedTheme)
+                    val chips = names.mapIndexed { i, n ->
+                        val face = faces.getOrNull(i)
+                        if (face != null) "$face $n" else n
+                    }
+                    if (chips.isNotEmpty()) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            suggestions.forEach { suggestion ->
+                            chips.forEach { suggestion ->
                                 OutlinedButton(onClick = { name = suggestion }) {
                                     Text(suggestion)
                                 }
