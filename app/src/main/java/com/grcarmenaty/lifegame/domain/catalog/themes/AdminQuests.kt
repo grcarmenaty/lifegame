@@ -213,6 +213,8 @@ internal object AdminQuests {
                     CADENCE_MONTHLY, cadenceCount = 1, weight = 1),
                 CatalogMinor("admin.money.r.roundup", "Tidy one corner of the finances", "another money corner is in order",
                     CADENCE_WEEKLY, cadenceCount = 1, weight = 1),
+                CatalogMinor("admin.money.r.transfer", "Move money to where it should sit", "the money is where it belongs",
+                    CADENCE_WEEKLY, cadenceCount = 1, weight = 1),
             ),
             oneOff = listOf(
                 CatalogMinor("admin.money.o.taxes", "File the tax return early", "the return is done and dusted",
@@ -267,6 +269,8 @@ internal object AdminQuests {
                 CatalogMinor("admin.home.r.checkdamp", "Check for damp or leaks", "nothing is quietly going wrong",
                     CADENCE_MONTHLY, cadenceCount = 1, weight = 1),
                 CatalogMinor("admin.home.r.sharpen", "Maintain one tool or appliance", "the tool works like it should",
+                    CADENCE_MONTHLY, cadenceCount = 1, weight = 1),
+                CatalogMinor("admin.home.r.declog", "Unclog or clear one slow drain", "the drain runs freely again",
                     CADENCE_MONTHLY, cadenceCount = 1, weight = 1),
             ),
             oneOff = listOf(
@@ -323,6 +327,8 @@ internal object AdminQuests {
                     CADENCE_MONTHLY, cadenceCount = 1, weight = 1),
                 CatalogMinor("admin.future.r.fifteen", "Spend fifteen minutes on the hard thing", "the hard thing got its quarter hour",
                     CADENCE_WEEKLY, cadenceCount = 2, weight = 1),
+                CatalogMinor("admin.future.r.checklist", "Add a step to the master checklist", "another step is written down",
+                    CADENCE_WEEKLY, cadenceCount = 1, weight = 1),
             ),
             oneOff = listOf(
                 CatalogMinor("admin.future.o.will", "Sort a basic will", "your wishes are written down properly",
