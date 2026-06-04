@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -106,6 +107,8 @@ fun DaemonDetailScreen(
     var pendingDeleteBoonId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showAddMajor by rememberSaveable { mutableStateOf(false) }
     var showLibrary by rememberSaveable { mutableStateOf(false) }
+    var editMajorId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editMinorId by rememberSaveable { mutableStateOf<Long?>(null) }
     var addingMinorForMajor by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingChapterForMajor by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -248,7 +251,9 @@ fun DaemonDetailScreen(
                         minors = state.minorsFor(major.id),
                         grantsBoonText = state.boonTextFor(major.wishBoonId),
                         onAddMinor = { addingMinorForMajor = major.id },
+                        onEditMajor = { editMajorId = major.id },
                         onDeleteMajor = { viewModel.requestDeleteMajor(major.id, major.title) },
+                        onEditMinor = { editMinorId = it },
                         onDeleteMinor = { viewModel.deleteMinor(it) },
                         onCompleteMajor = { viewModel.completeMajor(major.id) },
                         onReopenMajor = { viewModel.reopenMajor(major.id) },
@@ -346,6 +351,35 @@ fun DaemonDetailScreen(
                 showLibrary = false
             },
         )
+    }
+
+    editMajorId?.let { id ->
+        state.majors.firstOrNull { it.id == id }?.let { major ->
+            EditMajorDialog(
+                major = major,
+                onDismiss = { editMajorId = null },
+                onSave = { title, phrase ->
+                    viewModel.editMajor(id, title, phrase)
+                    editMajorId = null
+                },
+            )
+        }
+    }
+
+    editMinorId?.let { id ->
+        val minor = state.majors.firstNotNullOfOrNull { m ->
+            state.minorsFor(m.id).firstOrNull { it.id == id }
+        }
+        if (minor != null) {
+            EditMinorDialog(
+                minor = minor,
+                onDismiss = { editMinorId = null },
+                onSave = { title, cadence, count, days, weight, phrase ->
+                    viewModel.editMinor(id, title, cadence, count, days, weight, phrase)
+                    editMinorId = null
+                },
+            )
+        }
     }
 
     addingMinorForMajor?.let { majorId ->
@@ -533,7 +567,9 @@ private fun MajorCard(
     minors: List<MinorQuest>,
     grantsBoonText: String?,
     onAddMinor: () -> Unit,
+    onEditMajor: () -> Unit,
     onDeleteMajor: () -> Unit,
+    onEditMinor: (Long) -> Unit,
     onDeleteMinor: (Long) -> Unit,
     onCompleteMajor: () -> Unit,
     onReopenMajor: () -> Unit,
@@ -568,6 +604,9 @@ private fun MajorCard(
                             MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                IconButton(onClick = onEditMajor) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit major quest")
+                }
                 IconButton(onClick = onDeleteMajor) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete major quest")
                 }
@@ -582,7 +621,11 @@ private fun MajorCard(
             if (minors.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 minors.forEach { minor ->
-                    MinorRow(minor = minor, onDelete = { onDeleteMinor(minor.id) })
+                    MinorRow(
+                        minor = minor,
+                        onEdit = { onEditMinor(minor.id) },
+                        onDelete = { onDeleteMinor(minor.id) },
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -612,7 +655,7 @@ private fun MajorCard(
 }
 
 @Composable
-private fun MinorRow(minor: MinorQuest, onDelete: () -> Unit) {
+private fun MinorRow(minor: MinorQuest, onEdit: () -> Unit, onDelete: () -> Unit) {
     val mark = when {
         minor.completed -> "✓"
         minor.cadence == MinorQuest.CADENCE_ONE_OFF -> "○"
@@ -642,6 +685,9 @@ private fun MinorRow(minor: MinorQuest, onDelete: () -> Unit) {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        IconButton(onClick = onEdit) {
+            Icon(Icons.Default.Edit, contentDescription = "Edit minor")
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Default.Delete, contentDescription = "Delete minor")
@@ -728,6 +774,123 @@ private fun LibraryAddDialog(
                 }
             }
         },
+    )
+}
+
+@Composable
+private fun EditMajorDialog(
+    major: MajorQuest,
+    onDismiss: () -> Unit,
+    onSave: (title: String, phrase: String) -> Unit,
+) {
+    var title by rememberSaveable(major.id) { mutableStateOf(major.title) }
+    val initialPhrase = major.fragmentOverride
+        ?: QuestCatalog.majorFragment(major.templateId).orEmpty()
+    var phrase by rememberSaveable(major.id) { mutableStateOf(initialPhrase) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit quest") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                )
+                OutlinedTextField(
+                    value = phrase,
+                    onValueChange = { phrase = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Completion phrase") },
+                    placeholder = { Text("e.g. the ten kilometres are yours") },
+                )
+                Text(
+                    "The daemon quotes this in its own voice when you close the quest. " +
+                        "Keep it short and close to the original so it still reads naturally.",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(title, phrase) }, enabled = title.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditMinorDialog(
+    minor: MinorQuest,
+    onDismiss: () -> Unit,
+    onSave: (title: String, cadence: String, count: Int, days: Set<Int>, weight: Int, phrase: String) -> Unit,
+) {
+    var title by rememberSaveable(minor.id) { mutableStateOf(minor.title) }
+    var cadence by rememberSaveable(minor.id) { mutableStateOf(minor.cadence) }
+    var count by rememberSaveable(minor.id) { mutableStateOf(minor.cadenceCount) }
+    var daysCsv by rememberSaveable(minor.id) { mutableStateOf(minor.cadenceDays ?: "") }
+    var weightText by rememberSaveable(minor.id) { mutableStateOf(minor.weight.toString()) }
+    val initialPhrase = minor.fragmentOverride
+        ?: QuestCatalog.minorFragment(minor.templateId).orEmpty()
+    var phrase by rememberSaveable(minor.id) { mutableStateOf(initialPhrase) }
+    val weight = weightText.toIntOrNull()?.coerceIn(1, 9) ?: 1
+    val days = MinorQuest.parseDaysCsv(daysCsv)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit act") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                )
+                Text(
+                    text = "Cadence",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                com.grcarmenaty.lifegame.ui.common.CadencePicker(
+                    cadence = cadence,
+                    cadenceCount = count,
+                    cadenceDays = days,
+                    onCadenceChange = { cadence = it },
+                    onCadenceCountChange = { count = it },
+                    onCadenceDaysChange = { daysCsv = MinorQuest.encodeDays(it) ?: "" },
+                )
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { v -> weightText = v.filter { it.isDigit() }.take(1) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Weight (1–9)") },
+                )
+                OutlinedTextField(
+                    value = phrase,
+                    onValueChange = { phrase = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Completion phrase") },
+                    placeholder = { Text("e.g. the run is logged") },
+                )
+                Text(
+                    "Quoted in the daemon's voice when you complete it. Keep it short and " +
+                        "close to the original.",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(title, cadence, count, days, weight, phrase) },
+                enabled = title.isNotBlank(),
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 

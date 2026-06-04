@@ -70,6 +70,13 @@ data class MinorQuest(
      * generic per-archetype frame.
      */
     val templateId: String? = null,
+    /**
+     * v0.0.15: user-edited completion phrase, replacing the catalog
+     * fragment in the composed completion line so an edited minor's
+     * snackbar still reads naturally. Null = use the catalog fragment
+     * (templateId), or the generic per-archetype line for custom minors.
+     */
+    val fragmentOverride: String? = null,
 ) {
     /** Parsed view of [cadenceDays]. Empty when null/blank. */
     fun parsedCadenceDays(): Set<Int> = parseDaysCsv(cadenceDays)
