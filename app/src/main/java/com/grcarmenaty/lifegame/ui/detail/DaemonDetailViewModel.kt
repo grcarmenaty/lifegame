@@ -154,6 +154,24 @@ class DaemonDetailViewModel(
         viewModelScope.launch { specs.forEach { repository.addMajorFromCatalog(daemonId, it) } }
     }
 
+    fun editMajor(majorId: Long, title: String, fragmentOverride: String?) {
+        viewModelScope.launch { repository.editMajor(majorId, title, fragmentOverride) }
+    }
+
+    fun editMinor(
+        minorId: Long,
+        title: String,
+        cadence: String,
+        cadenceCount: Int,
+        cadenceDays: Set<Int>,
+        weight: Int,
+        fragmentOverride: String?,
+    ) {
+        viewModelScope.launch {
+            repository.editMinor(minorId, title, cadence, cadenceCount, cadenceDays, weight, fragmentOverride)
+        }
+    }
+
     fun addMajor(title: String) {
         viewModelScope.launch { repository.addMajor(daemonId, title.trim()) }
     }

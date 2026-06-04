@@ -27,14 +27,15 @@ Scaffold is in place. The app builds, runs, and ships:
   major quests + minor quests + boon. Steps 3–4 pick from the **quest
   library** (multi-select, pre-tick 3 repeating + 1 one-off per major)
   and/or author custom quests.
-- **Quest library** (v0.0.14) in `domain/catalog/`: a pre-authored
-  corpus, one file per theme under `catalog/themes/` — every
-  `LifeTheme` ships **6 major quests**, each with **6 repeating** minors
-  (sensible cadence) + **6 one-off** minors (harder, higher weight).
-  120 majors / 1 440 minors total, globally-unique `templateId`s. A
-  daemon can be summoned with several majors at once; the detail
-  screen's **+ Library** button adds more later (theme-scoped). Picked
-  quests persist their `templateId` on `major_quests` / `minor_quests`
+- **Quest library** (v0.0.14, expanded v0.0.15) in `domain/catalog/`: a
+  pre-authored corpus, one file per theme under `catalog/themes/` —
+  every `LifeTheme` ships **6 major quests**, each with **12 repeating**
+  minors (sensible cadence) + **12 one-off** minors (harder, higher
+  weight). 120 majors / 2 880 minors total, globally-unique
+  `templateId`s. A daemon can be summoned with several majors at once
+  (the picker hides per-major minor counts); the detail screen's
+  **+ Library** button adds more later (theme-scoped). Picked quests
+  persist their `templateId` on `major_quests` / `minor_quests`
   (DB v9→v10, additive). **Completion dialogue** is composed
   (`domain/dialogue/QuestCompletion.kt`): each catalog quest carries a
   quest-specific *fragment*; each archetype owns voiced *frames* with a
@@ -42,6 +43,15 @@ Scaffold is in place. The app builds, runs, and ships:
   rotating variants for repeatables. Minor completions surface the line
   in a **Daily snackbar**; major closures use it in the apotheosis
   dialog. Custom quests fall back to the archetype's generic completion.
+- **Quest editing** (v0.0.15): the detail screen edits any major/minor
+  (title, cadence, weight) via pencil actions. A `fragmentOverride`
+  column on both quest tables (DB v10→v11, additive) lets the user
+  retune the **completion phrase** while the `templateId` — and thus the
+  voiced dialogue frames — is preserved; the override also gives custom
+  quests a voiced line. Summoning's reward step offers **boon
+  suggestions** (`domain/BoonSuggestions.kt`, theme-flavoured). The
+  face chooser is now an **expanded scrollable grid panel**, not a
+  one-line ribbon.
 - **Daily view** listing today's open minor quests grouped by daemon,
   each greeted in the daemon's voice. Tap to complete. Top-bar `+`
   re-enters the summoning ritual to add another daemon.

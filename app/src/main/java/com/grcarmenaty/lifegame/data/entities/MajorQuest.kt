@@ -44,4 +44,11 @@ data class MajorQuest(
      * which fall back to the daemon's voice/engine line.
      */
     val templateId: String? = null,
+    /**
+     * v0.0.15: user-edited completion phrase. When set, it replaces the
+     * catalog fragment in the composed apotheosis line so editing a
+     * quest's wording keeps its dialogue coherent. Null = use the
+     * catalog fragment (templateId) or, for custom majors, none.
+     */
+    val fragmentOverride: String? = null,
 )

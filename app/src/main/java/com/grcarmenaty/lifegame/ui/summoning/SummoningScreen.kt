@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.grcarmenaty.lifegame.domain.BoonSuggestions
 import com.grcarmenaty.lifegame.domain.DaemonFaceCatalog
 import com.grcarmenaty.lifegame.domain.DaemonFaceSuggestions
 import com.grcarmenaty.lifegame.domain.DaemonNameSuggestions
@@ -226,6 +227,19 @@ fun SummoningScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
+                    val boonIdeas = BoonSuggestions.forTheme(LifeTheme.fromKey(themeKey))
+                    if (boonIdeas.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            boonIdeas.forEach { idea ->
+                                OutlinedButton(onClick = { boon = idea }) { Text(idea) }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
                     OutlinedTextField(
                         value = boon,
                         onValueChange = { boon = it },

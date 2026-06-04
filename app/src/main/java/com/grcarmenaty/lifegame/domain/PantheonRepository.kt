@@ -590,7 +590,7 @@ class PantheonRepository(
         // back to a generic per-archetype completion. Rotation advances
         // by day + in-window count (offset per quest) so a repeating
         // minor doesn't read identically each time.
-        val fragment = QuestCatalog.minorFragment(minor.templateId)
+        val fragment = minor.fragmentOverride ?: QuestCatalog.minorFragment(minor.templateId)
         val rotation = (now / 86_400_000L) + nextCountInWindow +
             (minor.templateId?.hashCode()?.toLong() ?: minor.id)
         return QuestCompletion.minorLine(voice, fragment, rotation)
@@ -626,7 +626,7 @@ class PantheonRepository(
         // the archetype; null for custom majors (caller then uses the
         // engine line / voice preset).
         val voice = VoicePreset.fromKey(daemon.voicePreset)
-        val questFragment = QuestCatalog.majorFragment(major.templateId)
+        val questFragment = major.fragmentOverride ?: QuestCatalog.majorFragment(major.templateId)
         val questLine = QuestCompletion.majorLine(
             voice,
             questFragment,
@@ -740,6 +740,49 @@ class PantheonRepository(
             )
         )
         return true
+    }
+
+    /**
+     * Edit a major's title and (optionally) its completion phrase. The
+     * templateId is preserved, so a library major keeps its voiced
+     * dialogue; [fragmentOverride] (blank → cleared) replaces the catalog
+     * fragment in the apotheosis line so the wording tracks the edit.
+     */
+    suspend fun editMajor(majorId: Long, title: String, fragmentOverride: String?) {
+        val major = questDao.getMajorById(majorId) ?: return
+        questDao.updateMajor(
+            major.copy(
+                title = title.trim(),
+                fragmentOverride = fragmentOverride?.trim()?.ifBlank { null },
+            )
+        )
+    }
+
+    /**
+     * Edit a minor's title, cadence and completion phrase. templateId
+     * preserved (keeps voiced dialogue); [fragmentOverride] replaces the
+     * catalog fragment in the completion snackbar.
+     */
+    suspend fun editMinor(
+        minorId: Long,
+        title: String,
+        cadence: String,
+        cadenceCount: Int,
+        cadenceDays: Set<Int>,
+        weight: Int,
+        fragmentOverride: String?,
+    ) {
+        val minor = questDao.getMinorById(minorId) ?: return
+        questDao.updateMinor(
+            minor.copy(
+                title = title.trim(),
+                cadence = cadence,
+                cadenceCount = cadenceCount.coerceAtLeast(1),
+                cadenceDays = MinorQuest.encodeDays(cadenceDays),
+                weight = weight.coerceIn(1, 9),
+                fragmentOverride = fragmentOverride?.trim()?.ifBlank { null },
+            )
+        )
     }
 
     suspend fun deleteMajor(majorId: Long) = questDao.deleteMajorById(majorId)

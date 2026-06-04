@@ -28,7 +28,7 @@ import com.grcarmenaty.lifegame.data.entities.PersonalDate
         LineSeen::class, CooldownPlay::class, DaemonState::class,
         EpicChapter::class, PersonalDate::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class LifegameDatabase : RoomDatabase() {
@@ -53,6 +53,7 @@ abstract class LifegameDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+                        MIGRATION_10_11,
                     )
                     .build()
                     .also { instance = it }
@@ -444,5 +445,18 @@ internal val MIGRATION_9_10 = object : Migration(9, 10) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `major_quests` ADD COLUMN `templateId` TEXT")
         db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `templateId` TEXT")
+    }
+}
+
+/**
+ * v10 → v11: quest editing (v0.0.15). Adds a nullable `fragmentOverride`
+ * to both quest tables — the user-edited completion phrase that replaces
+ * the catalog fragment in the composed completion line. Existing rows
+ * get NULL (unchanged dialogue). Additive ALTER, safe on SQLite.
+ */
+internal val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `major_quests` ADD COLUMN `fragmentOverride` TEXT")
+        db.execSQL("ALTER TABLE `minor_quests` ADD COLUMN `fragmentOverride` TEXT")
     }
 }

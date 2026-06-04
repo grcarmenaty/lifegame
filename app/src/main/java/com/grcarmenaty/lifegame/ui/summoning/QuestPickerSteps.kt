@@ -57,7 +57,7 @@ fun MajorPickStep(
                 CheckRow(
                     checked = selection.has(major.templateId),
                     title = major.title,
-                    subtitle = "${major.repeating.size} repeating · ${major.oneOff.size} one-off",
+                    subtitle = null,
                     onToggle = { onChange(selection.toggleCatalogMajor(major)) },
                 )
             }
@@ -185,7 +185,7 @@ private fun cadenceText(cm: CatalogMinor): String =
 private fun CheckRow(
     checked: Boolean,
     title: String,
-    subtitle: String,
+    subtitle: String?,
     onToggle: () -> Unit,
 ) {
     Card(
@@ -207,11 +207,13 @@ private fun CheckRow(
             Checkbox(checked = checked, onCheckedChange = { onToggle() })
             Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
