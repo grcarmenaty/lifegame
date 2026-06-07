@@ -34,13 +34,12 @@ fun ThemePicker(
     ) {
         LifeTheme.entries.forEach { theme ->
             val isSel = theme.key.equals(selectedKey, ignoreCase = true)
+            // Always clickable so a tap re-picks and advances the ritual.
             ThemeCard(
                 title = theme.display,
                 helper = theme.helper,
                 isSelected = isSel,
-                onClick = if (isSel) null else {
-                    { onPick(theme) }
-                },
+                onClick = { onPick(theme) },
             )
         }
         val otherSel = selectedKey.equals("OTHER", ignoreCase = true)
@@ -48,9 +47,7 @@ fun ThemePicker(
             title = "Other",
             helper = "Write your own — the daemon uses its base voice.",
             isSelected = otherSel,
-            onClick = if (otherSel) null else {
-                { onPick(null) }
-            },
+            onClick = { onPick(null) },
         )
     }
 }
