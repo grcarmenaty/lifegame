@@ -52,13 +52,12 @@ fun VoicePresetPicker(
                 PresetCard(
                     preset = preset,
                     isSelected = isSel,
-                    onClick = if (isSel) null else {
-                        {
-                            onSelect(preset)
-                            // Auto-collapse on pick so the picker snaps back
-                            // to the new selection without an extra tap.
-                            if (collapsible) expanded = false
-                        }
+                    // Always clickable — even the already-selected card —
+                    // so a tap can drive navigation (the summoning ritual
+                    // advances on pick, including re-picking the default).
+                    onClick = {
+                        onSelect(preset)
+                        if (collapsible) expanded = false
                     },
                 )
             }

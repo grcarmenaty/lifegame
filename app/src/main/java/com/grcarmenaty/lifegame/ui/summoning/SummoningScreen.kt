@@ -128,6 +128,9 @@ fun SummoningScreen(
                             // Themed daemons take the theme's archetype text
                             // silently; only "Other" asks for free text.
                             archetype = picked?.archetypeText ?: ""
+                            // Auto-advance on a real theme pick; "Other"
+                            // stays put so the user can type what it means.
+                            if (picked != null) step = 1
                         },
                     )
                     if (themeKey == "OTHER") {
@@ -145,7 +148,11 @@ fun SummoningScreen(
                     question = "How does it speak?",
                     helper = "Pick a voice. You can override individual lines later.",
                 ) {
-                    VoicePresetPicker(selected = voice, onSelect = { voiceKey = it.name })
+                    // Auto-advance to naming once a voice is chosen.
+                    VoicePresetPicker(
+                        selected = voice,
+                        onSelect = { voiceKey = it.name; step = 2 },
+                    )
                 }
                 2 -> Prompt(
                     question = "Give it a name and a face.",

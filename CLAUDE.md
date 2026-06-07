@@ -26,7 +26,8 @@ Scaffold is in place. The app builds, runs, and ships:
   process death via `rememberSaveable`) that creates a daemon + its
   major quests + minor quests + boon. Steps 3–4 pick from the **quest
   library** (multi-select, pre-tick 3 repeating + 1 one-off per major)
-  and/or author custom quests.
+  and/or author custom quests. Single-choice steps (theme, voice)
+  auto-advance on tap (v0.0.16); the major picker shows no minor counts.
 - **Quest library** (v0.0.14, expanded v0.0.15) in `domain/catalog/`: a
   pre-authored corpus, one file per theme under `catalog/themes/` —
   every `LifeTheme` ships **6 major quests**, each with **12 repeating**
