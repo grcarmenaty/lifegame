@@ -1,6 +1,7 @@
 package com.grcarmenaty.lifegame
 
 import android.app.Application
+import androidx.room.withTransaction
 import com.grcarmenaty.lifegame.data.LifegameDatabase
 import com.grcarmenaty.lifegame.domain.PantheonRepository
 import com.grcarmenaty.lifegame.domain.UserPrefs
@@ -43,6 +44,7 @@ class LifegameApplication : Application() {
             attentionDecay,
             database.personalDateDao(),
             userPrefs,
+            runInTransaction = { block -> database.withTransaction { block() } },
         )
     }
 

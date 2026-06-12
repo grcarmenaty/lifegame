@@ -61,6 +61,15 @@ class PantheonRepository(
     private val attentionDecay: AttentionDecay,
     private val personalDateDao: PersonalDateDao,
     private val userPrefs: UserPrefs,
+    /**
+     * Runs [block] atomically. Production wires Room's `withTransaction`
+     * (see [com.grcarmenaty.lifegame.LifegameApplication]); the default
+     * passthrough keeps the repository constructible in JVM tests.
+     * Multi-row flows (minor completion, major closure, summoning,
+     * import) go through this so a crash or a racing second tap can't
+     * leave half the side effects applied.
+     */
+    private val runInTransaction: suspend (suspend () -> Unit) -> Unit = { block -> block() },
 ) {
     private val defaultThresholdForAddedMajor = 3
 
@@ -364,15 +373,6 @@ class PantheonRepository(
         dialogueDao.setMinorsPerBoonOverride(daemonId, minorsPerBoon)
     }
 
-    /**
-     * Pending level-up addressables for the Daily banner. A daemon is
-     * pending if its computed level exceeds its `lastSeenLevel`.
-     */
-    suspend fun pendingLevelUpDaemons(): List<DaemonState> =
-        dialogueDao.allDaemonState().filter {
-            AttentionMath.levelFor(it.attentionPoints) > it.lastSeenLevel
-        }
-
     /** Bump `lastSeenLevel` after the user acknowledges a level-up. */
     suspend fun acknowledgeLevelUp(daemonId: Long) {
         val state = dialogueDao.daemonState(daemonId) ?: return
@@ -440,20 +440,23 @@ class PantheonRepository(
         theme: String? = null,
         face: String? = null,
     ): Long {
-        val daemonId = daemonDao.insert(
-            Daemon(
-                name = name,
-                archetype = archetype,
-                voicePreset = voicePreset.name,
-                theme = theme,
-                face = face,
+        var daemonId = -1L
+        runInTransaction {
+            daemonId = daemonDao.insert(
+                Daemon(
+                    name = name,
+                    archetype = archetype,
+                    voicePreset = voicePreset.name,
+                    theme = theme,
+                    face = face,
+                )
             )
-        )
-        val boonId = boonDao.insert(
-            Boon(daemonId = daemonId, text = boonText, count = 0)
-        )
-        majors.forEach { majorSpec ->
-            insertMajorWithMinors(daemonId, boonId, majorSpec)
+            val boonId = boonDao.insert(
+                Boon(daemonId = daemonId, text = boonText, count = 0)
+            )
+            majors.forEach { majorSpec ->
+                insertMajorWithMinors(daemonId, boonId, majorSpec)
+            }
         }
         return daemonId
     }
@@ -526,6 +529,16 @@ class PantheonRepository(
      * completion is rejected (already done / wrong day / window cap).
      */
     suspend fun completeMinor(minorId: Long): String? {
+        var line: String? = null
+        // Atomic: the window-gate check and the four writes it guards
+        // (minor row, major progress, attention, boon accrual) commit
+        // together, so a double-tap can't pass the gate twice or
+        // over-credit progress.
+        runInTransaction { line = completeMinorLocked(minorId) }
+        return line
+    }
+
+    private suspend fun completeMinorLocked(minorId: Long): String? {
         val minor = questDao.getMinorById(minorId) ?: return null
         if (minor.completed && minor.cadence == MinorQuest.CADENCE_ONE_OFF) return null
         val now = System.currentTimeMillis()
@@ -607,36 +620,51 @@ class PantheonRepository(
      * vestigial and will be dropped in a future schema-cleanup pass.
      */
     suspend fun completeMajor(majorId: Long): ApotheosisEvent? {
-        val major = questDao.getMajorById(majorId) ?: return null
-        if (major.completed) return null
-        questDao.updateMajor(major.copy(completed = true))
+        var major: MajorQuest? = null
+        var daemon: Daemon? = null
+        var state: DaemonState? = null
+        // Atomic: the already-completed check and the three writes
+        // (completed flag, majorsClosedTotal, attention bonus) commit
+        // together so a racing second tap can't double-deposit the
+        // +25. Dialogue composition stays outside — it reads prefs and
+        // shouldn't extend the write transaction.
+        runInTransaction {
+            val m = questDao.getMajorById(majorId) ?: return@runInTransaction
+            if (m.completed) return@runInTransaction
+            val d = daemonDao.getById(m.daemonId) ?: return@runInTransaction
+            questDao.updateMajor(m.copy(completed = true))
+            state = dialogueStateStore.ensureDaemonState(d.id)
+            dialogueDao.incrementMajorsClosed(d.id)
+            dialogueDao.addAttention(d.id, AttentionMath.MAJOR_CLOSURE_ATTENTION, System.currentTimeMillis())
+            major = m
+            daemon = d
+        }
+        val closedMajor = major ?: return null
+        val closedDaemon = daemon ?: return null
+        val stateBefore = state ?: return null
 
-        val daemon = daemonDao.getById(major.daemonId) ?: return null
-        val state = dialogueStateStore.ensureDaemonState(daemon.id)
-        dialogueDao.incrementMajorsClosed(daemon.id)
-
-        val before = state.attentionPoints
+        val before = stateBefore.attentionPoints
         val after = before + AttentionMath.MAJOR_CLOSURE_ATTENTION
-        val now = System.currentTimeMillis()
-        dialogueDao.addAttention(daemon.id, AttentionMath.MAJOR_CLOSURE_ATTENTION, now)
-        emitLevelUpIfCrossed(daemon, before, after, state.lastSeenLevel)
+        emitLevelUpIfCrossed(closedDaemon, before, after, stateBefore.lastSeenLevel)
 
-        val engineLine = pickInline(daemon.id, LineCategory.APOTHEOSIS)
+        val engineLine = pickInline(closedDaemon.id, LineCategory.APOTHEOSIS)
         // Quest-specific apotheosis line for library majors, voiced by
         // the archetype; null for custom majors (caller then uses the
         // engine line / voice preset).
-        val voice = VoicePreset.fromKey(daemon.voicePreset)
-        val questFragment = major.fragmentOverride ?: QuestCatalog.majorFragment(major.templateId)
+        val voice = VoicePreset.fromKey(closedDaemon.voicePreset)
+        val questFragment = closedMajor.fragmentOverride
+            ?: QuestCatalog.majorFragment(closedMajor.templateId)
         val questLine = QuestCompletion.majorLine(
             voice,
             questFragment,
-            state.majorsClosedTotal.toLong() + (major.templateId?.hashCode()?.toLong() ?: 0L),
+            stateBefore.majorsClosedTotal.toLong() +
+                (closedMajor.templateId?.hashCode()?.toLong() ?: 0L),
         )
         return ApotheosisEvent(
-            daemonId = daemon.id,
-            daemonName = daemon.name,
+            daemonId = closedDaemon.id,
+            daemonName = closedDaemon.name,
             voicePreset = voice,
-            completedMajorTitle = major.title,
+            completedMajorTitle = closedMajor.title,
             newLevel = AttentionMath.levelFor(after),
             grantedBoonText = null,   // boons no longer come from major closure
             grantedBoonCount = 0,
@@ -696,7 +724,11 @@ class PantheonRepository(
 
     // ---- CRUD: quests ----
 
-    suspend fun addMajor(daemonId: Long, title: String) {
+    suspend fun addMajor(
+        daemonId: Long,
+        title: String,
+        thresholdCount: Int = defaultThresholdForAddedMajor,
+    ) {
         // Default `wishBoonId` to the daemon's first boon; if there are
         // none somehow, the column is nullable and the major is just
         // level-only.
@@ -705,7 +737,7 @@ class PantheonRepository(
             MajorQuest(
                 daemonId = daemonId,
                 title = title,
-                thresholdCount = defaultThresholdForAddedMajor,
+                thresholdCount = thresholdCount.coerceAtLeast(1),
                 wishBoonId = firstBoon?.id,
                 wishRewardCount = 1,
             )
@@ -743,17 +775,25 @@ class PantheonRepository(
     }
 
     /**
-     * Edit a major's title and (optionally) its completion phrase. The
-     * templateId is preserved, so a library major keeps its voiced
-     * dialogue; [fragmentOverride] (blank → cleared) replaces the catalog
+     * Edit a major's title, (optionally) its completion phrase, and
+     * (optionally) its contribution threshold. The templateId is
+     * preserved, so a library major keeps its voiced dialogue;
+     * [fragmentOverride] (blank → cleared) replaces the catalog
      * fragment in the apotheosis line so the wording tracks the edit.
+     * [thresholdCount] null = leave unchanged.
      */
-    suspend fun editMajor(majorId: Long, title: String, fragmentOverride: String?) {
+    suspend fun editMajor(
+        majorId: Long,
+        title: String,
+        fragmentOverride: String?,
+        thresholdCount: Int? = null,
+    ) {
         val major = questDao.getMajorById(majorId) ?: return
         questDao.updateMajor(
             major.copy(
                 title = title.trim(),
                 fragmentOverride = fragmentOverride?.trim()?.ifBlank { null },
+                thresholdCount = thresholdCount?.coerceAtLeast(1) ?: major.thresholdCount,
             )
         )
     }
@@ -869,61 +909,63 @@ class PantheonRepository(
                     "v${PantheonBackup.CURRENT_FORMAT_VERSION})."
             )
         }
-        reset()
-        backup.daemons.forEach { dwc ->
-            daemonDao.insert(dwc.daemon)
-            dwc.boons.forEach { boonDao.insert(it) }
-            dwc.majorQuests.forEach { mwm ->
-                questDao.insertMajor(mwm.major)
-                mwm.minors.forEach { questDao.insertMinor(it) }
-            }
-        }
-        // v2 restore: dialogue state. v1 backups have empty lists and
-        // the daemons start fresh on dialogue (acceptable degradation).
-        if (backup.daemonState.isNotEmpty()) {
-            dialogueDao.insertAllDaemonState(backup.daemonState)
-        }
-        if (backup.lineSeen.isNotEmpty()) {
-            dialogueDao.insertAllLineSeen(backup.lineSeen)
-        }
-        if (backup.cooldownPlay.isNotEmpty()) {
-            dialogueDao.insertAllCooldowns(backup.cooldownPlay)
-        }
-        // v3: epic chapters.
-        if (backup.epicChapters.isNotEmpty()) {
-            epicChapterDao.insertAll(backup.epicChapters)
-        }
-        // v4: personal dates + birthday. Restore only — reset wipes
-        // the DataStore birthday because it was part of the prior
-        // pantheon's identity; the imported value (if any) replaces.
-        personalDateDao.deleteAll()
-        if (backup.personalDates.isNotEmpty()) {
-            personalDateDao.insertAll(backup.personalDates)
-        }
-        userPrefs.setBirthdayMonthDay(backup.userBirthdayMonthDay)
-
-        // Architect (round 1 v0.0.10): on v1/v2 import, the loaded
-        // DaemonState (if any) lacks the v0.0.10 attention columns and
-        // gets defaults — meaning restored daemons land at level 0
-        // unless we re-run the migration backfill. Ensure a row exists
-        // for every daemon, then backfill attention from the imported
-        // majors using the same helper the migration uses.
-        if (backup.formatVersion < 3) {
+        // Atomic replace: wipe + reload commit together, so a failed
+        // insert (e.g. an FK-inconsistent backup) rolls back to the
+        // pre-import pantheon instead of leaving the database empty.
+        runInTransaction {
+            // FK CASCADE deletes boons, quests, and dialogue state.
+            daemonDao.deleteAll()
+            personalDateDao.deleteAll()
             backup.daemons.forEach { dwc ->
-                dialogueStateStore.ensureDaemonState(dwc.daemon.id)
-                val allMinorsForDaemon = mutableListOf<MinorQuest>()
-                val majors = dwc.majorQuests.map { mwm ->
-                    allMinorsForDaemon += mwm.minors
-                    mwm.major
+                daemonDao.insert(dwc.daemon)
+                dwc.boons.forEach { boonDao.insert(it) }
+                dwc.majorQuests.forEach { mwm ->
+                    questDao.insertMajor(mwm.major)
+                    mwm.minors.forEach { questDao.insertMinor(it) }
                 }
-                val backfilled = com.grcarmenaty.lifegame.domain.attention.AttentionBackfill.compute(majors)
-                if (backfilled > 0) {
-                    dialogueDao.addAttention(dwc.daemon.id, backfilled, System.currentTimeMillis())
-                    val newLevel = AttentionMath.levelFor(backfilled)
-                    if (newLevel > 0) dialogueDao.bumpLastSeenLevel(dwc.daemon.id, newLevel)
+            }
+            // v2 restore: dialogue state. v1 backups have empty lists and
+            // the daemons start fresh on dialogue (acceptable degradation).
+            if (backup.daemonState.isNotEmpty()) {
+                dialogueDao.insertAllDaemonState(backup.daemonState)
+            }
+            if (backup.lineSeen.isNotEmpty()) {
+                dialogueDao.insertAllLineSeen(backup.lineSeen)
+            }
+            if (backup.cooldownPlay.isNotEmpty()) {
+                dialogueDao.insertAllCooldowns(backup.cooldownPlay)
+            }
+            // v3: epic chapters.
+            if (backup.epicChapters.isNotEmpty()) {
+                epicChapterDao.insertAll(backup.epicChapters)
+            }
+            // v4: personal dates.
+            if (backup.personalDates.isNotEmpty()) {
+                personalDateDao.insertAll(backup.personalDates)
+            }
+
+            // Architect (round 1 v0.0.10): on v1/v2 import, the loaded
+            // DaemonState (if any) lacks the v0.0.10 attention columns and
+            // gets defaults — meaning restored daemons land at level 0
+            // unless we re-run the migration backfill. Ensure a row exists
+            // for every daemon, then backfill attention from the imported
+            // majors using the same helper the migration uses.
+            if (backup.formatVersion < 3) {
+                backup.daemons.forEach { dwc ->
+                    dialogueStateStore.ensureDaemonState(dwc.daemon.id)
+                    val majors = dwc.majorQuests.map { it.major }
+                    val backfilled = com.grcarmenaty.lifegame.domain.attention.AttentionBackfill.compute(majors)
+                    if (backfilled > 0) {
+                        dialogueDao.addAttention(dwc.daemon.id, backfilled, System.currentTimeMillis())
+                        val newLevel = AttentionMath.levelFor(backfilled)
+                        if (newLevel > 0) dialogueDao.bumpLastSeenLevel(dwc.daemon.id, newLevel)
+                    }
                 }
             }
         }
+        // v4: birthday travels with the backup. DataStore write happens
+        // after the DB transaction commits — never inside it.
+        userPrefs.setBirthdayMonthDay(backup.userBirthdayMonthDay)
 
         return ImportResult.Success(daemonCount = backup.daemons.size)
     }
@@ -936,49 +978,14 @@ class PantheonRepository(
         userPrefs.setBirthdayMonthDay(null)
     }
 
-    private fun sameLocalDay(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
-            ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
-    }
-
-    private fun sameLocalWeek(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        // WEEK_OF_YEAR rolls at the Calendar's first-day-of-week (locale
-        // default). Pair with year-of-week to avoid edge-of-year collisions.
-        return ca.getWeekYear() == cb.getWeekYear() &&
-            ca.get(Calendar.WEEK_OF_YEAR) == cb.get(Calendar.WEEK_OF_YEAR)
-    }
-
-    private fun sameLocalMonth(a: Long, b: Long): Boolean {
-        val tz = TimeZone.getDefault()
-        val ca = Calendar.getInstance(tz).apply { timeInMillis = a }
-        val cb = Calendar.getInstance(tz).apply { timeInMillis = b }
-        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
-            ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH)
-    }
-
     /**
      * Whether [last] and [now] fall in the same cadence window for the
-     * given [minor]. The single source of truth used by [completeMinor]
-     * and by the Daily VM's `isOpenNow`, so completion gating and
-     * "open" rendering can't drift.
-     *
-     * WEEKLY with day-pinning uses per-day windows (one completion per
-     * selected day); plain WEEKLY uses the local ISO week.
+     * given [minor]. Delegates to the pure, unit-tested
+     * [CadenceWindows.sameWindow]; kept on the repository so the Daily
+     * VM's `isOpenNow` and [completeMinor]'s gate share one entry point.
      */
-    fun sameWindowAs(minor: MinorQuest, last: Long, now: Long): Boolean = when (minor.cadence) {
-        MinorQuest.CADENCE_DAILY -> sameLocalDay(last, now)
-        MinorQuest.CADENCE_WEEKLY ->
-            if (minor.cadenceDays.isNullOrBlank()) sameLocalWeek(last, now)
-            else sameLocalDay(last, now)
-        MinorQuest.CADENCE_MONTHLY -> sameLocalMonth(last, now)
-        else -> false
-    }
+    fun sameWindowAs(minor: MinorQuest, last: Long, now: Long): Boolean =
+        CadenceWindows.sameWindow(minor, last, now)
 }
 
 data class ApotheosisEvent(

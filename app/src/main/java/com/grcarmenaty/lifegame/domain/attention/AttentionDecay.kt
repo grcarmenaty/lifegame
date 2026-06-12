@@ -44,28 +44,28 @@ class AttentionDecay(
         return totalDrop
     }
 
-    /**
-     * Pure function for testing / call-sites that already loaded
-     * state.
-     */
-    fun decayFor(
-        lastAttentionUpdateAt: Long?,
-        now: Long,
-        cfg: ResolvedAttentionConfig,
-        masterNotificationsEnabled: Boolean,
-        daemonNotificationsEnabled: Boolean,
-    ): Int {
-        if (cfg.decayDisabled) return 0
-        if (cfg.decayPerDay <= 0) return 0
-        if (!masterNotificationsEnabled && !daemonNotificationsEnabled) return 0
-        val anchor = lastAttentionUpdateAt ?: return 0  // never anchored = never decay yet
-        val daysSinceUpdate = ((now - anchor) / DAY_MILLIS).toInt()
-        val effectiveDays = daysSinceUpdate - cfg.decayGraceDays
-        if (effectiveDays <= 0) return 0
-        return effectiveDays * cfg.decayPerDay
-    }
-
     companion object {
         const val DAY_MILLIS = 24L * 60L * 60L * 1000L
+
+        /**
+         * Pure function (companion so JVM tests don't need DAOs or a
+         * Context) for call-sites that already loaded state.
+         */
+        fun decayFor(
+            lastAttentionUpdateAt: Long?,
+            now: Long,
+            cfg: ResolvedAttentionConfig,
+            masterNotificationsEnabled: Boolean,
+            daemonNotificationsEnabled: Boolean,
+        ): Int {
+            if (cfg.decayDisabled) return 0
+            if (cfg.decayPerDay <= 0) return 0
+            if (!masterNotificationsEnabled && !daemonNotificationsEnabled) return 0
+            val anchor = lastAttentionUpdateAt ?: return 0  // never anchored = never decay yet
+            val daysSinceUpdate = ((now - anchor) / DAY_MILLIS).toInt()
+            val effectiveDays = daysSinceUpdate - cfg.decayGraceDays
+            if (effectiveDays <= 0) return 0
+            return effectiveDays * cfg.decayPerDay
+        }
     }
 }

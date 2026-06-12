@@ -57,16 +57,19 @@ Scaffold is in place. The app builds, runs, and ships:
   each greeted in the daemon's voice. Tap to complete. Top-bar `+`
   re-enters the summoning ritual to add another daemon.
 - **Per-daemon level bar** in the Daily card and on the detail screen:
-  fill ratio = the most-progressed open major's `progressCount /
-  thresholdCount` (closing it = +1 level). Empty when no open majors.
+  attention-derived since v0.0.10 — fill ratio = progress toward the
+  next attention-level threshold (see `domain/attention/`). Each open
+  major additionally shows its own `progressCount / thresholdCount`
+  bar on the detail screen (v0.0.17).
 - **Daemon detail screen** (tap the tune icon on a daemon card): edit
   name / archetype / voice preset; full quest history (all majors +
   minors, completed and open); destructive **Vanish daemon** with
   confirmation (cascades to quests via the existing FK).
-- **Quest CRUD** on the detail screen: add major (title; threshold
-  defaults to 3); add minor under any open major (title, cadence
-  one-off/daily, weight 1–9); delete major (confirm shows progress
-  loss); delete minor (no refund of past contributions yet).
+- **Quest CRUD** on the detail screen: add major (title + contribution
+  threshold, default 3; threshold also editable later via the pencil);
+  add minor under any open major (title, cadence one-off/daily, weight
+  1–9); delete major (confirm shows progress loss); delete minor (no
+  refund of past contributions yet).
 - **Multiple boons per daemon** via a Boons section on detail: add
   (text + initial count) and delete (confirm). Summoning still
   authors one boon. Each major implicitly grants +1 of the daemon's
@@ -182,13 +185,27 @@ Scaffold is in place. The app builds, runs, and ships:
   `dailyMinorsLapsedCount` from real DAO reads (the v0.0.6.1
   deferrals).
 
+- **Atomicity + per-major thresholds (v0.0.17)**: the multi-row write
+  flows (`completeMinor`, `completeMajor`, `summonDaemon`,
+  `importFromJson`) run inside Room transactions via a
+  `runInTransaction` lambda injected from `LifegameApplication` (JVM
+  tests get a passthrough default) — a double-tap can no longer pass
+  the cadence-window gate twice, and a failed import rolls back to the
+  pre-import pantheon instead of leaving the DB wiped. Add/edit-major
+  dialogs expose the contribution threshold (was hardcoded 3); open
+  majors show a `progressCount / thresholdCount` bar on detail.
+  Cadence-window arithmetic extracted to pure `domain/CadenceWindows`
+  (unit-tested: `CadenceWindowsTest`); `AttentionDecay.decayFor` moved
+  to its companion and covered by `AttentionDecayTest`.
+
 Not yet implemented (deliberately deferred per design v2 / v0.0.3
 council):
-- Epic chapters / scripture view
-- Per-major wish reward configuration UI (the `wishBoonId` and
-  `wishRewardCount` columns exist; v0.0.4 exposes them)
-- Per-major threshold configuration UI for added majors (hardcoded 3)
-- Editing quest/boon text (delete + re-add for now)
+- Per-major wish reward configuration UI — vestigial: the `wishBoonId`
+  and `wishRewardCount` columns exist but boons accrue from minor
+  completions since v0.0.10; the columns are slated for a future
+  schema-cleanup pass, not a UI
+- Editing boon text (delete + re-add for now; quest editing shipped
+  in v0.0.15)
 - Refund of contributions when a DAILY minor that has contributed is
   deleted (clean refund needs per-minor completion-count tracking)
 - Custom-interval cadences (every N days) — v0.0.11 ships
@@ -197,8 +214,9 @@ council):
 - Failure-handling tonal decay (greeting/completion lines stay neutral
   for now; reconciliation beats not wired up)
 - Soft-delete + undo for destructive ops
-- Unit + UI tests (only the scaffolding directories exist;
-  `MigrationTestHelper` round-trip for 1 → 2 is a tracked follow-up)
+- UI tests + the `MigrationTestHelper` round-trip (tracked follow-up;
+  JVM unit tests now cover dialogue lint, attention math, decay, and
+  cadence windows)
 
 ## Tech stack
 

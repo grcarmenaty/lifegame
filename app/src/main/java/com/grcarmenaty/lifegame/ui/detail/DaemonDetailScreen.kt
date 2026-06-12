@@ -335,8 +335,8 @@ fun DaemonDetailScreen(
     if (showAddMajor) {
         AddMajorDialog(
             onDismiss = { showAddMajor = false },
-            onAdd = { title ->
-                viewModel.addMajor(title)
+            onAdd = { title, threshold ->
+                viewModel.addMajor(title, threshold)
                 showAddMajor = false
             },
         )
@@ -358,8 +358,8 @@ fun DaemonDetailScreen(
             EditMajorDialog(
                 major = major,
                 onDismiss = { editMajorId = null },
-                onSave = { title, phrase ->
-                    viewModel.editMajor(id, title, phrase)
+                onSave = { title, phrase, threshold ->
+                    viewModel.editMajor(id, title, phrase, threshold)
                     editMajorId = null
                 },
             )
@@ -596,7 +596,7 @@ private fun MajorCard(
                         text = if (major.completed)
                             "completed"
                         else
-                            "${major.progressCount} minor contributions",
+                            "${major.progressCount} / ${major.thresholdCount} contributions",
                         style = MaterialTheme.typography.labelLarge,
                         color = if (major.completed)
                             MaterialTheme.colorScheme.primary
@@ -610,6 +610,16 @@ private fun MajorCard(
                 IconButton(onClick = onDeleteMajor) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete major quest")
                 }
+            }
+            if (!major.completed) {
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = {
+                        (major.progressCount.toFloat() / major.thresholdCount.coerceAtLeast(1))
+                            .coerceIn(0f, 1f)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             if (!grantsBoonText.isNullOrBlank()) {
                 Text(
@@ -781,12 +791,16 @@ private fun LibraryAddDialog(
 private fun EditMajorDialog(
     major: MajorQuest,
     onDismiss: () -> Unit,
-    onSave: (title: String, phrase: String) -> Unit,
+    onSave: (title: String, phrase: String, threshold: Int?) -> Unit,
 ) {
     var title by rememberSaveable(major.id) { mutableStateOf(major.title) }
     val initialPhrase = major.fragmentOverride
         ?: QuestCatalog.majorFragment(major.templateId).orEmpty()
     var phrase by rememberSaveable(major.id) { mutableStateOf(initialPhrase) }
+    var thresholdText by rememberSaveable(major.id) {
+        mutableStateOf(major.thresholdCount.toString())
+    }
+    val threshold = thresholdText.toIntOrNull()?.coerceIn(1, 999)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit quest") },
@@ -797,6 +811,12 @@ private fun EditMajorDialog(
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Title") },
+                )
+                OutlinedTextField(
+                    value = thresholdText,
+                    onValueChange = { v -> thresholdText = v.filter { it.isDigit() }.take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Goal (weight of small acts to fill the bar)") },
                 )
                 OutlinedTextField(
                     value = phrase,
@@ -814,7 +834,10 @@ private fun EditMajorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(title, phrase) }, enabled = title.isNotBlank()) {
+            TextButton(
+                onClick = { onSave(title, phrase, threshold) },
+                enabled = title.isNotBlank() && threshold != null,
+            ) {
                 Text("Save")
             }
         },
@@ -897,9 +920,11 @@ private fun EditMinorDialog(
 @Composable
 private fun AddMajorDialog(
     onDismiss: () -> Unit,
-    onAdd: (title: String) -> Unit,
+    onAdd: (title: String, threshold: Int) -> Unit,
 ) {
     var title by rememberSaveable { mutableStateOf("") }
+    var thresholdText by rememberSaveable { mutableStateOf("3") }
+    val threshold = thresholdText.toIntOrNull()?.coerceIn(1, 999)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add a major quest") },
@@ -911,9 +936,15 @@ private fun AddMajorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Title") },
                 )
+                OutlinedTextField(
+                    value = thresholdText,
+                    onValueChange = { v -> thresholdText = v.filter { it.isDigit() }.take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Goal (weight of small acts to fill the bar)") },
+                )
                 Text(
-                    text = "Closes after 3 contributions by default. " +
-                        "Grants 1 of the daemon's first boon on close.",
+                    text = "Small acts under this quest add their weight toward the goal. " +
+                        "The bar shows how close it is; you close the quest yourself.",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -921,8 +952,8 @@ private fun AddMajorDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(title) },
-                enabled = title.isNotBlank(),
+                onClick = { onAdd(title, threshold ?: 3) },
+                enabled = title.isNotBlank() && threshold != null,
             ) { Text("Add") }
         },
         dismissButton = {
