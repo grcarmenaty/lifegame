@@ -53,6 +53,18 @@ Scaffold is in place. The app builds, runs, and ships:
   suggestions** (`domain/BoonSuggestions.kt`, theme-flavoured). The
   face chooser is now an **expanded scrollable grid panel**, not a
   one-line ribbon.
+- **Undo for destructive deletes** (v0.0.17): deleting a minor, a major
+  (with all its minors), or a boon on the detail screen shows an Undo
+  snackbar. Repository deletes return in-memory snapshots; restores
+  re-insert with original row ids (`INSERT OR IGNORE` guards the
+  id-reuse race) and re-point `wishBoonId` FKs that the delete's
+  SET_NULL wiped. Only the latest delete is undoable; snapshots don't
+  survive process death. Vanish daemon keeps its confirm dialog.
+- **Per-major threshold configuration** (v0.0.17): add/edit major
+  dialogs expose "contributions to close" (was hardcoded 3 for added
+  majors); the major card shows `progress / threshold` plus a
+  "ready to close" marker. Closing stays a user act — the threshold is
+  guidance and the attention-migration cap, never an auto-close.
 - **Daily view** listing today's open minor quests grouped by daemon,
   each greeted in the daemon's voice. Tap to complete. Top-bar `+`
   re-enters the summoning ritual to add another daemon.
@@ -187,7 +199,6 @@ council):
 - Epic chapters / scripture view
 - Per-major wish reward configuration UI (the `wishBoonId` and
   `wishRewardCount` columns exist; v0.0.4 exposes them)
-- Per-major threshold configuration UI for added majors (hardcoded 3)
 - Editing quest/boon text (delete + re-add for now)
 - Refund of contributions when a DAILY minor that has contributed is
   deleted (clean refund needs per-minor completion-count tracking)
@@ -196,7 +207,9 @@ council):
 - Cross-daemon mechanics (including `@token` flavor references)
 - Failure-handling tonal decay (greeting/completion lines stay neutral
   for now; reconciliation beats not wired up)
-- Soft-delete + undo for destructive ops
+- Undo for Vanish daemon (quest/boon deletes got undo in v0.0.17; the
+  daemon's graph also spans dialogue state + epics, and its undo window
+  would have to survive the navigation pop — needs a design pass)
 - Unit + UI tests (only the scaffolding directories exist;
   `MigrationTestHelper` round-trip for 1 → 2 is a tracked follow-up)
 

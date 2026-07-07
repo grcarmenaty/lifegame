@@ -32,6 +32,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,6 +90,20 @@ fun DaemonDetailScreen(
     val saved by viewModel.saved.collectAsState()
     val deletePreview by viewModel.deletePreview.collectAsState()
     val apotheosis by viewModel.apotheosis.collectAsState()
+    val undoable by viewModel.undoable.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // A new deletion restarts this effect, auto-dismissing the previous
+    // snackbar — only the latest delete stays undoable.
+    LaunchedEffect(undoable) {
+        val undo = undoable ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = undo.message,
+            actionLabel = "Undo",
+        )
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(undo)
+        else viewModel.dismissUndo(undo)
+    }
 
     val daemon = state.daemon
     if (daemon == null) {
@@ -125,6 +142,7 @@ fun DaemonDetailScreen(
     LaunchedEffect(saved) { if (saved) viewModel.acknowledgeSaved() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -335,8 +353,8 @@ fun DaemonDetailScreen(
     if (showAddMajor) {
         AddMajorDialog(
             onDismiss = { showAddMajor = false },
-            onAdd = { title ->
-                viewModel.addMajor(title)
+            onAdd = { title, threshold ->
+                viewModel.addMajor(title, threshold)
                 showAddMajor = false
             },
         )
@@ -358,8 +376,8 @@ fun DaemonDetailScreen(
             EditMajorDialog(
                 major = major,
                 onDismiss = { editMajorId = null },
-                onSave = { title, phrase ->
-                    viewModel.editMajor(id, title, phrase)
+                onSave = { title, phrase, threshold ->
+                    viewModel.editMajor(id, title, phrase, threshold)
                     editMajorId = null
                 },
             )
@@ -592,13 +610,18 @@ private fun MajorCard(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
+                    val readyToClose =
+                        !major.completed && major.progressCount >= major.thresholdCount
                     Text(
-                        text = if (major.completed)
-                            "completed"
-                        else
-                            "${major.progressCount} minor contributions",
+                        text = when {
+                            major.completed -> "completed"
+                            readyToClose ->
+                                "${major.progressCount} / ${major.thresholdCount} contributions · ready to close"
+                            else ->
+                                "${major.progressCount} / ${major.thresholdCount} contributions"
+                        },
                         style = MaterialTheme.typography.labelLarge,
-                        color = if (major.completed)
+                        color = if (major.completed || readyToClose)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant,
@@ -781,9 +804,13 @@ private fun LibraryAddDialog(
 private fun EditMajorDialog(
     major: MajorQuest,
     onDismiss: () -> Unit,
-    onSave: (title: String, phrase: String) -> Unit,
+    onSave: (title: String, phrase: String, threshold: Int) -> Unit,
 ) {
     var title by rememberSaveable(major.id) { mutableStateOf(major.title) }
+    var thresholdText by rememberSaveable(major.id) {
+        mutableStateOf(major.thresholdCount.toString())
+    }
+    val threshold = thresholdText.toIntOrNull()?.coerceAtLeast(1) ?: major.thresholdCount
     val initialPhrase = major.fragmentOverride
         ?: QuestCatalog.majorFragment(major.templateId).orEmpty()
     var phrase by rememberSaveable(major.id) { mutableStateOf(initialPhrase) }
@@ -797,6 +824,15 @@ private fun EditMajorDialog(
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Title") },
+                )
+                OutlinedTextField(
+                    value = thresholdText,
+                    onValueChange = { v -> thresholdText = v.filter { it.isDigit() }.take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Contributions to close") },
+                    supportingText = {
+                        Text("Currently at ${major.progressCount}. Closing stays your call — this only marks when the quest reads as ready.")
+                    },
                 )
                 OutlinedTextField(
                     value = phrase,
@@ -814,9 +850,10 @@ private fun EditMajorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(title, phrase) }, enabled = title.isNotBlank()) {
-                Text("Save")
-            }
+            TextButton(
+                onClick = { onSave(title, phrase, threshold) },
+                enabled = title.isNotBlank() && thresholdText.toIntOrNull()?.let { it >= 1 } == true,
+            ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -897,9 +934,11 @@ private fun EditMinorDialog(
 @Composable
 private fun AddMajorDialog(
     onDismiss: () -> Unit,
-    onAdd: (title: String) -> Unit,
+    onAdd: (title: String, threshold: Int) -> Unit,
 ) {
     var title by rememberSaveable { mutableStateOf("") }
+    var thresholdText by rememberSaveable { mutableStateOf("3") }
+    val threshold = thresholdText.toIntOrNull()?.coerceAtLeast(1)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add a major quest") },
@@ -911,9 +950,16 @@ private fun AddMajorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Title") },
                 )
+                OutlinedTextField(
+                    value = thresholdText,
+                    onValueChange = { v -> thresholdText = v.filter { it.isDigit() }.take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Contributions to close") },
+                )
                 Text(
-                    text = "Closes after 3 contributions by default. " +
-                        "Grants 1 of the daemon's first boon on close.",
+                    text = "Minor completions add their weight to the count. When it " +
+                        "reaches this threshold the quest reads as ready to close — " +
+                        "closing it stays your call.",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -921,8 +967,8 @@ private fun AddMajorDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(title) },
-                enabled = title.isNotBlank(),
+                onClick = { onAdd(title, threshold ?: 3) },
+                enabled = title.isNotBlank() && threshold != null,
             ) { Text("Add") }
         },
         dismissButton = {

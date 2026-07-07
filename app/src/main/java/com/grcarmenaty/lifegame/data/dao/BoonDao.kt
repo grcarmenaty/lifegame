@@ -2,6 +2,7 @@ package com.grcarmenaty.lifegame.data.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.grcarmenaty.lifegame.data.entities.Boon
@@ -20,6 +21,10 @@ interface BoonDao {
 
     @Insert
     suspend fun insert(boon: Boon): Long
+
+    /** Undo-restore with original id; -1 if the id was reused meanwhile. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun restore(boon: Boon): Long
 
     @Query("UPDATE boons SET count = count + :delta WHERE id = :id")
     suspend fun incrementCount(id: Long, delta: Int)

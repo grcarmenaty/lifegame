@@ -696,7 +696,11 @@ class PantheonRepository(
 
     // ---- CRUD: quests ----
 
-    suspend fun addMajor(daemonId: Long, title: String) {
+    suspend fun addMajor(
+        daemonId: Long,
+        title: String,
+        thresholdCount: Int = defaultThresholdForAddedMajor,
+    ) {
         // Default `wishBoonId` to the daemon's first boon; if there are
         // none somehow, the column is nullable and the major is just
         // level-only.
@@ -705,7 +709,7 @@ class PantheonRepository(
             MajorQuest(
                 daemonId = daemonId,
                 title = title,
-                thresholdCount = defaultThresholdForAddedMajor,
+                thresholdCount = thresholdCount.coerceAtLeast(1),
                 wishBoonId = firstBoon?.id,
                 wishRewardCount = 1,
             )
@@ -743,16 +747,25 @@ class PantheonRepository(
     }
 
     /**
-     * Edit a major's title and (optionally) its completion phrase. The
-     * templateId is preserved, so a library major keeps its voiced
-     * dialogue; [fragmentOverride] (blank → cleared) replaces the catalog
-     * fragment in the apotheosis line so the wording tracks the edit.
+     * Edit a major's title, contribution threshold and (optionally) its
+     * completion phrase. The templateId is preserved, so a library major
+     * keeps its voiced dialogue; [fragmentOverride] (blank → cleared)
+     * replaces the catalog fragment in the apotheosis line so the wording
+     * tracks the edit. [thresholdCount] null = keep the current value;
+     * lowering it below `progressCount` is allowed — the major just reads
+     * as ready-to-close (closing remains the user's explicit act).
      */
-    suspend fun editMajor(majorId: Long, title: String, fragmentOverride: String?) {
+    suspend fun editMajor(
+        majorId: Long,
+        title: String,
+        fragmentOverride: String?,
+        thresholdCount: Int? = null,
+    ) {
         val major = questDao.getMajorById(majorId) ?: return
         questDao.updateMajor(
             major.copy(
                 title = title.trim(),
+                thresholdCount = (thresholdCount ?: major.thresholdCount).coerceAtLeast(1),
                 fragmentOverride = fragmentOverride?.trim()?.ifBlank { null },
             )
         )
@@ -785,8 +798,43 @@ class PantheonRepository(
         )
     }
 
-    suspend fun deleteMajor(majorId: Long) = questDao.deleteMajorById(majorId)
-    suspend fun deleteMinor(minorId: Long) = questDao.deleteMinorById(minorId)
+    // ---- Destructive deletes with undo snapshots ----
+    //
+    // Each delete returns a snapshot the caller can hand back to the
+    // matching restore while an undo affordance is showing. Restores
+    // re-insert with the ORIGINAL row ids so child FKs stay valid; the
+    // DAO's IGNORE strategy makes them safe no-ops if SQLite reused the
+    // id for a newer row in the meantime (rowid = max+1 without
+    // AUTOINCREMENT). Attention already earned from deleted minors is
+    // intentionally not clawed back — mirrors the no-refund rule for
+    // spent wishes.
+
+    suspend fun deleteMajor(majorId: Long): MajorDeletion? {
+        val major = questDao.getMajorById(majorId) ?: return null
+        val minors = questDao.getMinorsForMajor(majorId)
+        questDao.deleteMajorById(majorId)
+        return MajorDeletion(major, minors)
+    }
+
+    /** @return false if the undo lost the id-reuse race and nothing was restored. */
+    suspend fun restoreMajor(deletion: MajorDeletion): Boolean {
+        if (daemonDao.getById(deletion.major.daemonId) == null) return false
+        if (questDao.restoreMajor(deletion.major) == -1L) return false
+        questDao.restoreMinors(deletion.minors)
+        return true
+    }
+
+    suspend fun deleteMinor(minorId: Long): MinorQuest? {
+        val minor = questDao.getMinorById(minorId) ?: return null
+        questDao.deleteMinorById(minorId)
+        return minor
+    }
+
+    /** @return false when the parent major is gone or the id was reused. */
+    suspend fun restoreMinor(minor: MinorQuest): Boolean {
+        questDao.getMajorById(minor.majorQuestId) ?: return false
+        return questDao.restoreMinor(minor) != -1L
+    }
 
     suspend fun progressLossPreview(majorId: Long): Pair<Int, Int> {
         val done = questDao.countCompletedMinorsForMajor(majorId)
@@ -802,7 +850,24 @@ class PantheonRepository(
         )
     }
 
-    suspend fun deleteBoon(boonId: Long) = boonDao.deleteById(boonId)
+    suspend fun deleteBoon(boonId: Long): BoonDeletion? {
+        val boon = boonDao.getById(boonId) ?: return null
+        // The FK is SET_NULL: capture which majors point at this boon
+        // BEFORE the delete wipes their `wishBoonId`.
+        val grantingMajorIds = questDao.majorIdsGrantingBoon(boonId)
+        boonDao.deleteById(boonId)
+        return BoonDeletion(boon, grantingMajorIds)
+    }
+
+    /** @return false when the daemon is gone or the boon's id was reused. */
+    suspend fun restoreBoon(deletion: BoonDeletion): Boolean {
+        if (daemonDao.getById(deletion.boon.daemonId) == null) return false
+        if (boonDao.restore(deletion.boon) == -1L) return false
+        if (deletion.grantingMajorIds.isNotEmpty()) {
+            questDao.relinkWishBoon(deletion.grantingMajorIds, deletion.boon.id)
+        }
+        return true
+    }
 
     // ---- Backup / restore / reset ----
 
@@ -997,6 +1062,26 @@ data class ApotheosisEvent(
      * majors; UI prefers this over [engineLine] when present.
      */
     val questLine: String? = null,
+)
+
+/**
+ * Snapshot returned by [PantheonRepository.deleteMajor], accepted back by
+ * [PantheonRepository.restoreMajor] while an undo affordance is live.
+ * Carries original row ids — do not persist across process death.
+ */
+data class MajorDeletion(
+    val major: MajorQuest,
+    val minors: List<MinorQuest>,
+)
+
+/**
+ * Snapshot returned by [PantheonRepository.deleteBoon]. [grantingMajorIds]
+ * are the majors whose `wishBoonId` the FK's SET_NULL wiped; restore
+ * re-points them at the resurrected boon.
+ */
+data class BoonDeletion(
+    val boon: Boon,
+    val grantingMajorIds: List<Long>,
 )
 
 /** Emitted when a daemon's computed level rises above [lastSeenLevel]. */
