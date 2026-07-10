@@ -139,6 +139,15 @@ class PantheonRepository(
             else -> HolidayCalendar.tokenFor(cal, region)
         }
 
+        // v0.0.18 specificity: first open-now minor across open majors,
+        // interpolated into `{quest}` lines. Long titles read badly
+        // inside a sentence, so they fall back to template-safe lines.
+        val openQuestTitle = openMajors.firstNotNullOfOrNull { major ->
+            questDao.getMinorsForMajor(major.id)
+                .firstOrNull { isMinorOpenNow(it, nowMs) && it.title.length <= 60 }
+                ?.title?.trim()?.ifBlank { null }
+        }
+
         return ConversationContext(
             daemonId = daemon.id,
             daemonName = daemon.name,
@@ -166,6 +175,7 @@ class PantheonRepository(
             holidayToken = holidayToken,
             personalDateLabel = personalDateMatch?.label,
             theme = daemon.theme,
+            openQuestTitle = openQuestTitle,
         )
     }
 
@@ -251,9 +261,24 @@ class PantheonRepository(
     }
 
     private fun renderLine(text: String, ctx: ConversationContext): String {
-        val label = ctx.personalDateLabel ?: return text
-        return text.replace("{label}", label)
+        var rendered = text
+        ctx.personalDateLabel?.let { rendered = rendered.replace("{label}", it) }
+        // {quest} lines are gated on HasOpenQuest, so the title is
+        // present whenever the placeholder is; both are user-authored
+        // (or catalog) text, never an arbitrary source.
+        ctx.openQuestTitle?.let { rendered = rendered.replace("{quest}", it) }
+        return rendered
     }
+
+    /**
+     * Engine-picked OPENER for the Daily card greeting, or null → the
+     * caller falls back to the [VoicePreset] greeting bank. This is
+     * what finally surfaces the contextual corpus (day-of-week,
+     * holidays, level transitions, `{quest}` focus lines) on the main
+     * screen instead of only in notifications.
+     */
+    suspend fun pickDailyGreeting(daemonId: Long): String? =
+        pickInline(daemonId, LineCategory.OPENER)
 
     // ---- Personal dates (v0.0.11) ----
 
@@ -1043,6 +1068,27 @@ class PantheonRepository(
             else sameLocalDay(last, now)
         MinorQuest.CADENCE_MONTHLY -> sameLocalMonth(last, now)
         else -> false
+    }
+
+    /**
+     * Whether the minor can be completed right now: one-offs until done,
+     * day-pinned weeklies only on their days, repeatables until the
+     * per-window cap. Shared by the Daily VM's open list and by
+     * `buildContext`'s `{quest}` candidate pick so the greeting never
+     * names a quest the list wouldn't show.
+     */
+    fun isMinorOpenNow(m: MinorQuest, nowMs: Long): Boolean {
+        if (m.cadence == MinorQuest.CADENCE_ONE_OFF) return !m.completed
+        if (m.cadence == MinorQuest.CADENCE_WEEKLY) {
+            val days = m.parsedCadenceDays()
+            if (days.isNotEmpty()) {
+                val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                if (today !in days) return false
+            }
+        }
+        val last = m.lastCompletedAt ?: return true
+        return if (!sameWindowAs(m, last, nowMs)) true
+        else m.completionsThisWindow < m.effectiveCount()
     }
 }
 

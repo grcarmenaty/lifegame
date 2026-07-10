@@ -39,6 +39,17 @@ object HasOpenMajors : Predicate {
         ctx.openMajors.isNotEmpty()
 }
 
+/**
+ * v0.0.18: gates lines carrying the `{quest}` placeholder — satisfied
+ * only when `buildContext` found an open minor quest whose title is
+ * short enough to interpolate. Template-safe lines (no placeholder)
+ * remain the fallback pool when this fails.
+ */
+object HasOpenQuest : Predicate {
+    override fun isSatisfied(ctx: ConversationContext) =
+        ctx.openQuestTitle != null
+}
+
 // ---- Time of day ----
 
 class TimeOfDayIs(private val t: TimeOfDay) : Predicate {
