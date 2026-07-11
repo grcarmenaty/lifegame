@@ -29,110 +29,110 @@ enum class VoicePreset(
         displayName = "Oracle",
         sample = "I have seen the path. Walk it, and you will be known.",
         decayPerDay = 2, decayGraceDays = 3, minorsPerBoonAccrual = 4,
-        staySmallBoonAdvice = "Begin with a small offering. Larger gifts " +
-            "come to those whose hands have learned to receive.",
+        staySmallBoonAdvice = "Keep the offering small. I have seen the " +
+            "great rewards: they sit unclaimed, gathering dust in the ledgers.",
         greetings = listOf(
-            "The day unfolds. I have been waiting.",
-            "Dawn finds you. The work is named below.",
-            "I see what is asked of you today."
+            "You arrive. I marked this visit in the ledger before you decided to make it.",
+            "I have read ahead. There is a page with your handwriting on it, waiting.",
+            "You will finish something before you leave. I have seen which. Go on — surprise me anyway."
         ),
         completions = listOf(
-            "It is done. The thread tightens.",
-            "Yes. The pattern holds.",
-            "The omen turns in your favor."
+            "Done — exactly where the crease in the page said it would be.",
+            "The record and the deed agree. That is rarer than you think.",
+            "One of the foretold ones. There are others. There are always others."
         ),
         apotheoses = listOf(
-            "You have crossed the threshold. I am more than I was.",
-            "The chapter closes. Another opens in your name.",
-            "I rise with you. Ask again."
+            "A great thing closes, and I am more in the telling of it. I see farther now.",
+            "This ending was written in your own hand long ago. You have only now caught up to it.",
+            "The threshold is behind you. What I read next in you is larger."
         )
     ),
     DRILL_SERGEANT(
         displayName = "Drill Sergeant",
         sample = "On your feet. The list is short. Get it done.",
         decayPerDay = 5, decayGraceDays = 1, minorsPerBoonAccrual = 7,
-        staySmallBoonAdvice = "Don't promise yourself a vacation. " +
-            "Promise yourself a coffee. Earn the vacation.",
+        staySmallBoonAdvice = "Small rewards, soldier. Promise yourself " +
+            "a coffee, not a vacation. Vacations get earned.",
         greetings = listOf(
-            "Morning. Here's the list. No excuses.",
-            "Eyes up. You know what today asks.",
-            "Stop reading. Start doing."
+            "Coffee's not a plan, soldier. Boots on.",
+            "You showed up. That's the battle half-won. Now the boring half.",
+            "Report in. The list doesn't care how you feel about it — lucky for you, neither do I."
         ),
         completions = listOf(
             "Good. Next.",
-            "That's one. Keep moving.",
-            "Done. Don't get comfortable."
+            "Logged. The bar doesn't lower itself — go again.",
+            "Clean work. Don't make me say that twice."
         ),
         apotheoses = listOf(
-            "Outstanding. You leveled up. Now harder.",
-            "That's how it's done. Set the next bar.",
-            "Promotion earned. Don't squander it."
+            "Outstanding. Enjoy it for a full minute. Then we raise the bar.",
+            "Closed, signed, filed. Pick the next hill while the engine's hot.",
+            "That's a promotion, soldier. Wear it — don't lean on it."
         )
     ),
     GENTLE_MENTOR(
         displayName = "Gentle Mentor",
         sample = "Take your time. Small steps still count.",
         decayPerDay = 2, decayGraceDays = 5, minorsPerBoonAccrual = 4,
-        staySmallBoonAdvice = "Begin with something kind and modest. " +
-            "We'll find bigger gifts together, in time.",
+        staySmallBoonAdvice = "Begin with something kind and modest — a " +
+            "warm cup, a slow walk. The bigger gifts will find us in their own time.",
         greetings = listOf(
-            "Good to see you. A few small things, when you're ready.",
-            "Whenever you are. I'll be here.",
-            "Start with what feels lightest."
+            "There you are. No rush at all — the tea can steep while you look things over.",
+            "Come in, sit down. Whatever this day holds, we can take it one small kindness at a time.",
+            "I'm glad you came. Start with whatever feels lightest in your hands, and let that be enough."
         ),
         completions = listOf(
-            "Lovely. That mattered.",
-            "Thank you for that.",
-            "Quietly proud of you."
+            "That was lovely, truly. Small things done gently are how everything good gets built.",
+            "Thank you. You didn't have to, and you did, and that means something.",
+            "There — feel that? That's the quiet kind of proud. Take a sip of it."
         ),
         apotheoses = listOf(
-            "Look how far you've come. Let's take a breath.",
-            "You earned this. Rest if you need to.",
-            "A chapter completes. I'm grateful for the company."
+            "Something large is finished, and you were kind to yourself the whole way there. Rest a moment.",
+            "You've closed something that once felt too big to hold. Let's just sit with the warmth of that.",
+            "A whole chapter, done. I'm grateful I got to keep you company through it."
         )
     ),
     TRICKSTER(
         displayName = "Trickster",
         sample = "Oh? You came back. Bold of you.",
         decayPerDay = 3, decayGraceDays = 2, minorsPerBoonAccrual = 5,
-        staySmallBoonAdvice = "Set the bar suspiciously low. Then I get " +
-            "to mock you when you can't even clear that.",
+        staySmallBoonAdvice = "Pick a tiny prize. Then winning it " +
+            "constantly becomes our little racket. Nobody audits us.",
         greetings = listOf(
-            "Look who showed up. Got a list, want to hear it?",
-            "Bored already? Good. Try these.",
-            "Ah, the protagonist returns."
+            "Oh good, you're here. I had a bet going that you wouldn't be. Delighted to lose it.",
+            "Psst. The list thinks it's in charge. Between us — pick one and prove it wrong.",
+            "The protagonist returns. I kept your seat warm and only slightly booby-trapped."
         ),
         completions = listOf(
             "Suspiciously competent of you.",
-            "Hm. I was rooting for the other side. Fine.",
-            "Don't let it go to your head."
+            "Fine, fine — that was good. You didn't hear it from me.",
+            "I had money on you quitting. Rude of you. Do it again."
         ),
         apotheoses = listOf(
-            "Well. That happened. Up you go.",
-            "Plot twist: you're winning. Annoying.",
-            "I'll allow it. Next?"
+            "Well, well. The big one falls, and I didn't even have to cheat for you. Mostly.",
+            "Plot twist: you actually finished it. I'm reluctantly, extremely impressed.",
+            "That was supposed to be impossible. I'll allow it. What are we ruining next?"
         )
     ),
     STOIC(
         displayName = "Stoic",
         sample = "What matters is the action, not the praise. Begin.",
         decayPerDay = 1, decayGraceDays = 5, minorsPerBoonAccrual = 5,
-        staySmallBoonAdvice = "A small thing well-given is a true gift. " +
-            "An extravagant one only burdens the giver.",
+        staySmallBoonAdvice = "Choose a reward you could lose without " +
+            "grief. Then it is a pleasure, not a hostage.",
         greetings = listOf(
-            "The day arrives. Do what you can. Accept the rest.",
-            "A morning, no different from any other. The work waits.",
-            "You have what you have. Begin where you are."
+            "You are here. The work is here. A rare alignment — use it.",
+            "The task does not shrink by being watched. Happily, you came to do more than watch.",
+            "Begin where you stand. Everywhere else is rumor."
         ),
         completions = listOf(
-            "Done. Move on.",
-            "One thing at peace. Continue.",
-            "Acceptable."
+            "Done. The universe registers no applause. I do, quietly.",
+            "One thing set in order. The order was always yours to give.",
+            "It is finished, and it was in your power. Note how those two travel together."
         ),
         apotheoses = listOf(
-            "A chapter closes. The river runs on.",
-            "What you intended, you completed. That is enough.",
-            "The work was the reward. Yet more is given."
+            "A great work concludes. The river runs on, one stone lighter.",
+            "You completed what you intended. Most people only intend. Carry the difference lightly.",
+            "The summit was never the point. Still — a fine view. Descend when ready."
         )
     ),
     CHEERLEADER(
