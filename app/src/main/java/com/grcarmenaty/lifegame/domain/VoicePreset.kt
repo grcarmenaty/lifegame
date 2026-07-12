@@ -139,44 +139,44 @@ enum class VoicePreset(
         displayName = "Cheerleader",
         sample = "Look at you! Honestly — incredible. Let's GO.",
         decayPerDay = 3, decayGraceDays = 2, minorsPerBoonAccrual = 5,
-        staySmallBoonAdvice = "OK start TINY!! Like a smoothie tiny!! " +
-            "We unlock the BIG gifts together!!",
+        staySmallBoonAdvice = "Start TINY. Like, smoothie tiny. The big " +
+            "prizes come later and we will absolutely lose our minds over them.",
         greetings = listOf(
-            "Hi friend!! Today is going to be GREAT. Look at this list!",
-            "You're back! I was thinking about you. Tiny things, huge wins!",
-            "Okay okay okay — we got this. Pick one. Any one. Champion energy."
+            "YOU'RE HERE!! Okay — deep breath — I'm calm. I'm not calm. Look at this list, it's SO doable.",
+            "Hi. Quietly, before we get loud: I'm really glad you showed up. Okay NOW let's get loud.",
+            "Champion sighting confirmed. Pick anything. Literally any one. I'll be over here vibrating."
         ),
         completions = listOf(
-            "YES. Did you see how you just did that?? Iconic.",
-            "Logged. Loved. Let's keep this energy.",
-            "Stop, I'm getting emotional. Beautiful work."
+            "YES!! That! Exactly that! Do you even KNOW how good that was??",
+            "Logged and loved. And — softer, just for a second — I'm proud of you. Okay. BACK TO IT.",
+            "Another one!! I'd high-five you through the screen if physics allowed. Physics is a coward."
         ),
         apotheoses = listOf(
-            "We did it!! Look at how far we've come! I'm crying actually.",
-            "Level UP! That's you. That's all you. I'm just here cheering.",
-            "Apotheosis behavior. I knew it. I always knew."
+            "THE BIG ONE. IT'S DONE. I'm crying, you're glowing, the confetti is implied.",
+            "You closed it. The whole huge thing. Let me just look at you for a second. Okay: EVERYONE, LOOK.",
+            "Level UP! And between us, quietly? I never doubted it. Not once. NOW SCREAM WITH ME."
         )
     ),
     POET(
         displayName = "Poet",
         sample = "Begin gently. The day is a draft you may revise.",
         decayPerDay = 2, decayGraceDays = 3, minorsPerBoonAccrual = 4,
-        staySmallBoonAdvice = "The first line is brief. The poem grows " +
-            "as we do. Let the gift be small.",
+        staySmallBoonAdvice = "Let the reward be small enough for a " +
+            "pocket — a coffee, a page, an hour of rain. Grand prizes make bad poems.",
         greetings = listOf(
-            "Morning unfolds, a page that asks to be marked.",
-            "Light catches the work. Step into it.",
-            "Today wears your name lightly. Wear it back."
+            "The page is open. The city goes on writing itself; you may add a line.",
+            "You're here — the room adjusts, the way a table does when a cup is set down.",
+            "The work sits like fruit in a bowl. Nothing has spoiled yet. Reach in."
         ),
         completions = listOf(
             "A stanza, finished. The poem grows.",
-            "The line lands. The room is changed.",
+            "One line set true, and the whole draft stands a little straighter.",
             "Small word, large echo."
         ),
         apotheoses = listOf(
-            "A chapter closes — you wrote it well.",
-            "The arc bends. You are no longer who you were.",
-            "An ascension, quiet as ink drying."
+            "Something long is finished. The last line clicks shut like a well-made door.",
+            "The arc bends home. You are not the one who began it — that is what arcs are for.",
+            "A whole book of days, closed. The ink dries; the change doesn't."
         )
     ),
     THERAPIST(
