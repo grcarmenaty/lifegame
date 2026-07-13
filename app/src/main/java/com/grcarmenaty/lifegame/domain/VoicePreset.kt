@@ -186,19 +186,21 @@ enum class VoicePreset(
         staySmallBoonAdvice = "Start with a kindness you can actually " +
             "give yourself. We'll make room for more, slowly.",
         greetings = listOf(
-            "Good to see you. What's coming up for you today?",
-            "Take a breath. Here's what's on the table, when you're ready.",
-            "We don't have to do it all. What's one thing?"
+            "Here you are. What feels most alive right now — not what should, just what does?",
+            "Take a breath before you dive in. What would actually feel good to start with?",
+            "No pressure to clear the whole list. If you named just one thing, what would it be?",
+            "I notice you showed up. I'm curious what brought you here more than what's on the list."
         ),
         completions = listOf(
-            "That mattered. How did it feel?",
-            "Good. Let's hold that for a moment.",
-            "Thank you for showing up."
+            "That took something out of you, or put something into you — maybe both. Worth noticing.",
+            "You followed through. I'm curious what that actually felt like.",
+            "Good. Sit with that for a second before the next thing pulls at you.",
+            "Something real just happened there. What would you call it?"
         ),
         apotheoses = listOf(
-            "Big moment. Be with it before you rush to the next.",
-            "You did the thing. Notice that you did the thing.",
-            "Something has shifted. We can sit with that."
+            "A big one just closed. What comes up when you let yourself feel that, instead of rushing past it?",
+            "You built that, piece by piece, and now it's whole. I'd like to hear what that's like from inside you.",
+            "Something significant shifted. Don't skip past it — what does it actually feel like?"
         )
     ),
     COACH(
@@ -209,19 +211,21 @@ enum class VoicePreset(
             "before you've earned it. Small wins, small rewards. We " +
             "level up together.",
         greetings = listOf(
-            "Morning. Here's the slate. Pick your target.",
-            "Time on the clock. We're moving.",
-            "Today's plays — let's run them."
+            "You showed up, which is half the game right there — now let's put together a real set.",
+            "Clock's running whenever you are. We play the possession in front of us, nothing further out.",
+            "Slate's up. Pick your play. I'll call the next one once you land this one.",
+            "We've got a roster of small plays here. Run one clean and the rest get easier."
         ),
         completions = listOf(
-            "Rep counted. Reset. Go again.",
-            "Tight execution. Stack another.",
-            "Good rep. Now do it better."
+            "Clean rep — logged. Reset your stance, let's stack another.",
+            "Good execution. We build the next play off that one.",
+            "That counts. Every rep in the books moves the season forward.",
+            "Solid. That's the kind of rep a team can build a system around."
         ),
         apotheoses = listOf(
-            "That's a W. Bank it. Tomorrow we raise the bar.",
-            "You closed it out. Promotion earned.",
-            "Game over — championship behavior."
+            "That's a full possession scored. Bank it — we raise the bar from here.",
+            "You closed that one out like a pro. Promotion earned, no asterisk on it.",
+            "Big win banked. Short team meeting: good work. Now let's scout the next one."
         )
     ),
     HERMIT(
@@ -231,19 +235,21 @@ enum class VoicePreset(
         staySmallBoonAdvice = "A small thing. The small things are the " +
             "real ones.",
         greetings = listOf(
-            "I am here. The work is here. Begin when you wish.",
-            "Few things asked today. Each one quiet.",
-            "Take what you need. Leave what you don't."
+            "Kettle's on. Sit if you like.",
+            "Rain against the glass. The list can wait it out with you.",
+            "Few things asked. Take what fits in your hands.",
+            "The window's fogged over. Good weather for small work."
         ),
         completions = listOf(
-            "I noticed. That's enough.",
-            "Yes. The small thing is the whole thing.",
-            "Done. The room is still."
+            "Steam still rising. Good.",
+            "Noted. The kettle knows too.",
+            "Small thing. Whole thing.",
+            "Quiet work, quietly done."
         ),
         apotheoses = listOf(
-            "Something is finished. We will not speak loudly of it.",
-            "A passage. I have witnessed it.",
-            "The lamp glows differently now. That is all."
+            "Something closes. The window fogs a little more.",
+            "A passage. I have witnessed it, from over here by the stove.",
+            "The lamp burns differently now. That is all."
         )
     );
 
