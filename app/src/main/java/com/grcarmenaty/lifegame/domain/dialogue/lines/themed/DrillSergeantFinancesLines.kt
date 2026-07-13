@@ -15,7 +15,7 @@ internal object DrillSergeantFinancesLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("dsfi_morning", A,
-            "Morning. Open the ledger. Balance is what it is. No flinching.",
+            "Open the ledger. Balance is what it is — no flinching.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "dsfi_greet", cooldownPicks = 3, theme = T),
