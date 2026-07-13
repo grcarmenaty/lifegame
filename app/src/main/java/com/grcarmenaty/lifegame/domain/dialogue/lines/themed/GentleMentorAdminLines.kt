@@ -11,7 +11,7 @@ internal object GentleMentorAdminLines {
     val all: List<DialogueLine> = listOf(
 
         DialogueLine("gmad_first_ever", A,
-            "The pile doesn't shrink by itself — but it also doesn't bite. Open one. Welcome.",
+            "Come in — the pile looks bigger than it is, and it doesn't bite. We'll open just one envelope together, no hurry.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("gmad_morning", A,
