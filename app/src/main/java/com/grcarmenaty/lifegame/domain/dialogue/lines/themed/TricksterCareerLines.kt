@@ -334,7 +334,7 @@ internal object TricksterCareerLines {
             cooldownGroup = "trca_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,
             theme = T),
         DialogueLine("trca_nudge_afternoon_zero", A,
-            "Phone in drawer. One focused hour. Go.",
+            "Scoreboard's still at zero this afternoon. Phone in the drawer, one focused hour — I'll wait right here.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Afternoon, MinorsCompletedTodayIsZero, HasOpenMajors),
             cooldownGroup = "trca_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,
