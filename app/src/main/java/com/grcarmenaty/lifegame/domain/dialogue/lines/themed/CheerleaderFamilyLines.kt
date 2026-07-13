@@ -15,7 +15,7 @@ internal object CheerleaderFamilyLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("chfa_morning", A,
-            "Hi friend!! Cute good-morning text to ONE family member. Iconic small gift.",
+            "One good-morning text to one family member. Takes ten seconds, means more than you think.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "chfa_greet", cooldownPicks = 3, theme = T),

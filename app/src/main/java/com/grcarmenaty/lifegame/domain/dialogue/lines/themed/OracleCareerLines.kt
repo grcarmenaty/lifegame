@@ -58,7 +58,7 @@ internal object OracleCareerLines {
             cooldownGroup = "orca_weekmarker", cooldownPicks = 1,
             recencyKey = RecencyKey.THIS_WEEK, theme = T),
         DialogueLine("orca_weekend", A,
-            "Two unscheduled days. In the good draft, the brain actually rests — 'side project' rest is just work in a disguise.",
+            "Two unscheduled days. In the good draft, the brain actually rests — “side project” rest is just work in a disguise.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(IsWeekend),
             cooldownGroup = "orca_weekmarker", cooldownPicks = 1,

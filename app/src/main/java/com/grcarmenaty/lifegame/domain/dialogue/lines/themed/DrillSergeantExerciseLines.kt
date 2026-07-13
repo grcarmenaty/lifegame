@@ -24,7 +24,7 @@ internal object DrillSergeantExerciseLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("dsex_morning", A,
-            "Morning. Warm up. Move.",
+            "Warm up. Move. That's the whole conversation this early.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "dsex_greet", cooldownPicks = 3, theme = T),
