@@ -15,7 +15,7 @@ internal object DrillSergeantDigitalLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("dsdi_morning", A,
-            "Morning. Phone stays face-down for the first hour. Non-negotiable.",
+            "Face-down for the first hour. Non-negotiable — the phone can wait, you can't.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "dsdi_greet", cooldownPicks = 3, theme = T),
