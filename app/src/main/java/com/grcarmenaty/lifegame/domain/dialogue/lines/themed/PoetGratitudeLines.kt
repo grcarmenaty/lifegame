@@ -15,7 +15,7 @@ internal object PoetGratitudeLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("ptgr_morning", A,
-            "Three small things, now. The day already brightens.",
+            "Three small things, right now — the day already brightens for having named them.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "ptgr_greet", cooldownPicks = 3, theme = T),
