@@ -215,7 +215,7 @@ internal object DrillSergeantFinancesLines {
             stateRequirements = listOf(OnHispanitat),
             cooldownGroup = "dsfi_holiday", cooldownPicks = 1, theme = T),
         DialogueLine("dsfi_castanyada", A,
-            "Castanyada. Heating bill's coming. Front-load the savings now.",
+            "Chestnut season means the heating bill's coming. Front-load the savings now.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY, lifeEvent = true,
             stateRequirements = listOf(OnCastanyada),
