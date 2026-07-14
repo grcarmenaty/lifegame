@@ -340,7 +340,7 @@ internal object StoicLearningLines {
             cooldownGroup = "stle_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,
             theme = T),
         DialogueLine("stle_nudge_evening", A,
-            "Evening. One chapter — then close it. The brain consolidates overnight.",
+            "One chapter, then close the book. It settles overnight, not while you push.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
             cooldownGroup = "stle_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,
