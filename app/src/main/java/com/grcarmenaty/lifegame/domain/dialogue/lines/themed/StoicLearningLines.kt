@@ -30,7 +30,7 @@ internal object StoicLearningLines {
             stateRequirements = listOf(TimeOfDay_Afternoon),
             cooldownGroup = "stle_greet", cooldownPicks = 3, theme = T),
         DialogueLine("stle_evening", A,
-            "Evening. One chapter — then close it. The brain consolidates overnight.",
+            "One chapter this evening — then close it. The brain consolidates overnight.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Evening),
             cooldownGroup = "stle_greet", cooldownPicks = 3, theme = T),

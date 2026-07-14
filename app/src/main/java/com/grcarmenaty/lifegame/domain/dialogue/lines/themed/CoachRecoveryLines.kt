@@ -11,11 +11,11 @@ internal object CoachRecoveryLines {
     val all: List<DialogueLine> = listOf(
 
         DialogueLine("core_first_ever", A,
-            "First day. Recovery's a play too — pick the rest block. Suit up.",
+            "Welcome to the program. Recovery's a play too, not garbage time — pick a rest block and log it.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("core_morning", A,
-            "Morning. Slow start — coffee, stretch, breath. Pre-game's gentle. Run the play.",
+            "Slow start today — coffee, stretch, breath. Pre-game doesn't need to be loud to count.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "core_greet", cooldownPicks = 3, theme = T),
