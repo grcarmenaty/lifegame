@@ -52,7 +52,7 @@ internal object TherapistRecoveryLines {
             cooldownGroup = "thre_weekmarker", cooldownPicks = 1,
             recencyKey = RecencyKey.THIS_WEEK, theme = T),
         DialogueLine("thre_friday", A,
-            "Friday. The week takes something out of you. What would it look like to do nothing well tonight?",
+            "The week takes something out of you by now. What would it look like to do nothing well tonight?",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(IsFriday),
             cooldownGroup = "thre_weekmarker", cooldownPicks = 1,

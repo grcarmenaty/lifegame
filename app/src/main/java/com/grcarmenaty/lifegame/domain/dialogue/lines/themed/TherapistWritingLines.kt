@@ -52,7 +52,7 @@ internal object TherapistWritingLines {
             cooldownGroup = "thwr_weekmarker", cooldownPicks = 1,
             recencyKey = RecencyKey.THIS_WEEK, theme = T),
         DialogueLine("thwr_friday", A,
-            "Friday. Worth reading back what you wrote this week — is there one sentence that still holds up?",
+            "Something about the week closing makes it worth reading back what you wrote — is there one sentence that still holds up?",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(IsFriday),
             cooldownGroup = "thwr_weekmarker", cooldownPicks = 1,
