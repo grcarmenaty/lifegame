@@ -194,7 +194,7 @@ internal object GentleMentorHydrationLines {
             stateRequirements = listOf(OnFestaMajorGracia),
             cooldownGroup = "gmhy_holiday", cooldownPicks = 1, theme = T),
         DialogueLine("gmhy_assumpcio", A,
-            "This August heat asks for real attention — something like three liters today, a little salt with each meal, and slow sips. No heroics needed.",
+            "This August heat asks for real attention — three liters or so today, a little salt with meals, and sips kept slow.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY, lifeEvent = true,
             stateRequirements = listOf(OnAssumpcio),
