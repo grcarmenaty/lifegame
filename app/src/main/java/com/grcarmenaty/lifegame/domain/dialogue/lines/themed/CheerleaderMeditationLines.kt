@@ -283,6 +283,7 @@ internal object CheerleaderMeditationLines {
             cooldownGroup = "chme_5_today", cooldownPicks = 1, theme = T),
         DialogueLine("chme_complete_after_streak", A,
             "Three days of sitting running now. The mind's quieter, and it's your doing. We love this for you.",
+            LineTier.CONTEXTUAL, LineCategory.COMPLETION,
             stateRequirements = listOf(Streak_3),
             cooldownGroup = "chme_streak_complete", cooldownPicks = 4, theme = T),
 
