@@ -11,7 +11,7 @@ internal object CoachOutdoorsLines {
     val all: List<DialogueLine> = listOf(
 
         DialogueLine("coou_first_ever", A,
-            "First day. Pick the route — twenty-minute walk minimum. Suit up.",
+            "Day one. Pick the route — a twenty-minute walk at minimum. We start there.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("coou_morning", A,
