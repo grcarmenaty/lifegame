@@ -11,11 +11,11 @@ internal object OracleHydrationLines {
     val all: List<DialogueLine> = listOf(
 
         DialogueLine("orhy_first_ever", A,
-            "You came to ask of the small acts. Water, light, salt — they compound in silence. Begin.",
+            "You came asking about the small acts. Water, light, salt — I've watched them compound in silence. Begin.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("orhy_morning", A,
-            "Morning. Water before coffee — the body has been dry for hours.",
+            "The body's been dry for hours while you slept. Water before the coffee — I've read what skipping it does.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "orhy_greet", cooldownPicks = 3, theme = T),
