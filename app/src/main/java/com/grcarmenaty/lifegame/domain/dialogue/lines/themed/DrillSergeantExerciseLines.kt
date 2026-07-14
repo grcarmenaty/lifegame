@@ -236,7 +236,7 @@ internal object DrillSergeantExerciseLines {
             stateRequirements = listOf(OnHispanitat),
             cooldownGroup = "dsex_holiday", cooldownPicks = 1, theme = T),
         DialogueLine("dsex_castanyada", A,
-            "Castanyada. Dark earlier now. Move before dinner or you won't.",
+            "Chestnut smoke and early dark tonight. Move before dinner or you won't move at all.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY, lifeEvent = true,
             stateRequirements = listOf(OnCastanyada),
