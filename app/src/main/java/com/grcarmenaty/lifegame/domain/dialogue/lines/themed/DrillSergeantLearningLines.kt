@@ -340,7 +340,7 @@ internal object DrillSergeantLearningLines {
             cooldownGroup = "dsle_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,
             theme = T),
         DialogueLine("dsle_nudge_evening", A,
-            "Evening. One chapter. Then close it. Brain consolidates overnight.",
+            "One chapter before bed, then close it — the brain consolidates it overnight.",
             LineTier.CONTEXTUAL, LineCategory.NUDGE,
             stateRequirements = listOf(TimeOfDay_Evening, HasOpenMajors),
             cooldownGroup = "dsle_nudge", cooldownPicks = 1, crossSurfaceCooldown = true,

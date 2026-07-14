@@ -15,7 +15,7 @@ internal object DrillSergeantTidynessLines {
             LineTier.ESSENTIAL, LineCategory.OPENER,
             lifeEvent = true, stateRequirements = listOf(FirstConversation), theme = T),
         DialogueLine("dsti_morning", A,
-            "Morning. Bed made. Surface cleared. Day starts cleaner that way.",
+            "Bed made, surface cleared before anything else. The day starts cleaner that way.",
             LineTier.CONTEXTUAL, LineCategory.OPENER,
             stateRequirements = listOf(TimeOfDay_Morning),
             cooldownGroup = "dsti_greet", cooldownPicks = 3, theme = T),

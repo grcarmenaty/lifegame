@@ -209,7 +209,7 @@ internal object StoicLearningLines {
             stateRequirements = listOf(OnAssumpcio),
             cooldownGroup = "stle_holiday", cooldownPicks = 1, theme = T),
         DialogueLine("stle_hispanitat", A,
-            "A day off. Pick up the textbook you have been avoiding. One tough chapter.",
+            "A day off is the moment to pick up the textbook you have been avoiding. One tough chapter.",
             LineTier.ESSENTIAL, LineCategory.OPENER,
             recencyKey = RecencyKey.TODAY, lifeEvent = true,
             stateRequirements = listOf(OnHispanitat),
