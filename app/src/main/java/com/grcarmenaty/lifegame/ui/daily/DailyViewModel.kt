@@ -113,10 +113,31 @@ class DailyViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyState())
     }
 
+    /**
+     * One engine greeting per daemon per local day. Each engine pick
+     * marks the line played (cooldowns advance), so re-collections of
+     * the state flow (navigation away/back) must reuse the day's pick
+     * instead of burning through the corpus.
+     */
+    private val greetingCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun buildDaemonBlockFlow(daemon: Daemon): Flow<DaemonDailyBlock> {
         val voice = VoicePreset.fromKey(daemon.voicePreset)
         val greetingSeed = daemon.id + todaySeed()
+
+        // Engine-picked contextual OPENER (day-of-week, holidays, level
+        // transitions, {quest} focus lines…) with the template-safe
+        // VoicePreset bank as instant render + fallback.
+        val greetingFlow: Flow<String> = flow {
+            val fallback = voice.greeting(greetingSeed)
+            val cacheKey = "${daemon.id}:${todaySeed()}"
+            greetingCache[cacheKey]?.let { emit(it); return@flow }
+            emit(fallback)
+            val engineLine = repository.pickDailyGreeting(daemon.id)
+            greetingCache[cacheKey] = engineLine ?: fallback
+            if (engineLine != null) emit(engineLine)
+        }
 
         val majorGroupsFlow: Flow<List<MajorGroup>> =
             repository.observeMajors(daemon.id).flatMapLatest { majors ->
@@ -146,7 +167,8 @@ class DailyViewModel(
             majorGroupsFlow,
             repository.observeBoons(daemon.id),
             repository.observeDaemonState(daemon.id),
-        ) { majorGroups, boons, ds ->
+            greetingFlow,
+        ) { majorGroups, boons, ds, greeting ->
             val attention = ds?.attentionPoints ?: 0
             val level = AttentionMath.levelFor(attention)
             DaemonDailyBlock(
@@ -155,7 +177,7 @@ class DailyViewModel(
                 attentionPoints = attention,
                 levelProgress = AttentionMath.levelProgress(attention),
                 atMaxLevel = level >= AttentionMath.MAX_LEVEL,
-                greeting = voice.greeting(greetingSeed),
+                greeting = greeting,
                 majorGroups = majorGroups,
                 availableBoons = boons.filter { it.count > 0 },
             )
@@ -201,25 +223,8 @@ class DailyViewModel(
 
     fun dismissBoon() { _boonGranted.value = null }
 
-    private fun isOpenNow(m: MinorQuest): Boolean {
-        if (m.cadence == MinorQuest.CADENCE_ONE_OFF) return !m.completed
-        // WEEKLY + day-pinned: only openable on selected days.
-        if (m.cadence == MinorQuest.CADENCE_WEEKLY) {
-            val days = m.parsedCadenceDays()
-            if (days.isNotEmpty()) {
-                val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-                if (today !in days) return false
-            }
-        }
-        val last = m.lastCompletedAt ?: return true
-        val now = System.currentTimeMillis()
-        val inSameWindow = repository.sameWindowAs(m, last, now)
-        // Fresh window ⇒ open. Same window ⇒ open only if we haven't
-        // hit the per-window cap yet (n times per day/week/month, or
-        // 1 per day for weekly-with-days).
-        return if (!inSameWindow) true
-        else m.completionsThisWindow < m.effectiveCount()
-    }
+    private fun isOpenNow(m: MinorQuest): Boolean =
+        repository.isMinorOpenNow(m, System.currentTimeMillis())
 
     private fun todaySeed(): Long {
         val c = Calendar.getInstance()

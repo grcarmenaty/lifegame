@@ -57,4 +57,15 @@ data class ConversationContext(
      * summoning. The engine filters theme-tagged lines against this.
      */
     val theme: String?,
+    /**
+     * v0.0.18 specificity: the title of one minor quest that is open
+     * *right now* for this daemon (first open minor of the first open
+     * major), or null when nothing is open or the title is too long to
+     * read naturally inside a line. Lines gated on [HasOpenQuest] may
+     * carry the `{quest}` placeholder; `renderLine` substitutes the
+     * title. Always author the placeholder QUOTED (“{quest}”) — the
+     * title is user-editable text and quoting keeps an off-voice title
+     * from breaking the daemon's speech. Enforced by `DialogueLintTest`.
+     */
+    val openQuestTitle: String? = null,
 )

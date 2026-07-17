@@ -200,6 +200,38 @@ class DialogueLintTest {
     }
 
     /**
+     * v0.0.18 specificity guard: `{quest}` and the [HasOpenQuest] gate
+     * must travel together — the placeholder without the gate renders
+     * literally when nothing is open; the gate without the placeholder
+     * wastes the predicate. And the placeholder must be QUOTED
+     * (“{quest}”) so a user-authored title can't break the daemon's
+     * voice mid-sentence — the template-safe lines stay in the pool as
+     * the fallback when the gate fails.
+     */
+    @Test fun quest_lines_are_gated_and_quoted() {
+        for (line in corpus) {
+            val hasToken = "{quest}" in line.text
+            val hasGate = line.stateRequirements.any { it === HasOpenQuest }
+            if (!hasToken && !hasGate) continue
+            assertTrue(
+                "Line ${line.id} uses {quest} but isn't gated on HasOpenQuest — " +
+                    "it would render the placeholder literally.",
+                hasGate,
+            )
+            assertTrue(
+                "Line ${line.id} is gated on HasOpenQuest but never uses {quest} — " +
+                    "the gate is wasted.",
+                hasToken,
+            )
+            assertTrue(
+                "Line ${line.id} must quote the quest title (“{quest}”) so " +
+                    "user-authored phrasing can't break the daemon's voice.",
+                "“{quest}”" in line.text,
+            )
+        }
+    }
+
+    /**
      * v0.0.11 archetype-coverage floor: each per-archetype file must
      * carry at least 30 distinct lines. Below that the cooldown system
      * runs out of fresh content within a couple of weeks and the

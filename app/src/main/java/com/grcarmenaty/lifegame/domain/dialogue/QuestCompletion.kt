@@ -22,18 +22,39 @@ object QuestCompletion {
     fun minorLine(voice: VoicePreset, fragment: String?, rotation: Long): String {
         if (fragment.isNullOrBlank()) return voice.completion(rotation)
         val frames = MINOR_FRAMES.getValue(voice)
-        return frames[floorMod(rotation, frames.size)].replace("{0}", fragment)
+        return fill(frames[floorMod(rotation, frames.size)], fragment)
     }
 
     fun majorLine(voice: VoicePreset, fragment: String?, rotation: Long): String? {
         if (fragment.isNullOrBlank()) return null
         val frames = MAJOR_FRAMES.getValue(voice)
-        return frames[floorMod(rotation, frames.size)].replace("{0}", fragment)
+        return fill(frames[floorMod(rotation, frames.size)], fragment)
     }
+
+    /**
+     * Substitute the fragment into the frame's `{0}` slot, capitalizing
+     * its first letter when the slot opens a sentence. Fragments are
+     * authored lowercase ("the run is logged") so mid-sentence slots
+     * read naturally; without this, sentence-start slots produced
+     * lowercase sentence openers in every other snackbar.
+     */
+    internal fun fill(frame: String, fragment: String): String {
+        val idx = frame.indexOf(SLOT)
+        if (idx < 0) return frame
+        val before = frame.substring(0, idx).trimEnd()
+        val atSentenceStart = before.isEmpty() || before.last() in SENTENCE_ENDERS
+        val piece =
+            if (atSentenceStart) fragment.replaceFirstChar { it.uppercaseChar() }
+            else fragment
+        return frame.replaceFirst(SLOT, piece)
+    }
+
+    private const val SLOT = "{0}"
+    private val SENTENCE_ENDERS = setOf('.', '!', '?', '…')
 
     private fun floorMod(x: Long, m: Int): Int = ((x % m + m) % m).toInt()
 
-    private val MINOR_FRAMES: Map<VoicePreset, List<String>> = mapOf(
+    internal val MINOR_FRAMES: Map<VoicePreset, List<String>> = mapOf(
         VoicePreset.ORACLE to listOf(
             "It is done. {0}, as I foresaw.",
             "{0}. The pattern holds.",
@@ -116,7 +137,7 @@ object QuestCompletion {
         ),
     )
 
-    private val MAJOR_FRAMES: Map<VoicePreset, List<String>> = mapOf(
+    internal val MAJOR_FRAMES: Map<VoicePreset, List<String>> = mapOf(
         VoicePreset.ORACLE to listOf(
             "The prophecy closes. {0}, and a door opens.",
             "{0}. What was foretold is now behind you.",

@@ -53,6 +53,19 @@ data class DeleteMajorPreview(
     val totalMinors: Int,
 )
 
+/**
+ * One undoable delete, surfaced as an Undo snackbar. Only the most
+ * recent delete is undoable (standard snackbar semantics — a newer
+ * delete replaces the pending one). [token] keeps two same-message
+ * deletes distinct so the snackbar re-shows. [restore] returns false
+ * when the restore lost an id-reuse race or the parent row is gone.
+ */
+class UndoableDelete(
+    val token: Long,
+    val message: String,
+    val restore: suspend () -> Boolean,
+)
+
 class DaemonDetailViewModel(
     private val repository: PantheonRepository,
     val daemonId: Long,
@@ -121,6 +134,26 @@ class DaemonDetailViewModel(
     private val _apotheosis = MutableStateFlow<ApotheosisEvent?>(null)
     val apotheosis: StateFlow<ApotheosisEvent?> = _apotheosis
 
+    private val _undoable = MutableStateFlow<UndoableDelete?>(null)
+    val undoable: StateFlow<UndoableDelete?> = _undoable
+    private var undoTokens = 0L
+
+    private fun offerUndo(message: String, restore: suspend () -> Boolean) {
+        _undoable.value = UndoableDelete(++undoTokens, message, restore)
+    }
+
+    fun undoDelete(undo: UndoableDelete) {
+        viewModelScope.launch {
+            undo.restore()
+            _undoable.compareAndSet(undo, null)
+        }
+    }
+
+    /** Snackbar timed out or was replaced — drop the snapshot if still current. */
+    fun dismissUndo(undo: UndoableDelete) {
+        _undoable.compareAndSet(undo, null)
+    }
+
     fun save(name: String, archetype: String, voicePreset: VoicePreset, face: String?) {
         viewModelScope.launch {
             repository.updateDaemon(daemonId, name.trim(), archetype.trim(), voicePreset, face)
@@ -143,7 +176,12 @@ class DaemonDetailViewModel(
     }
 
     fun deleteBoon(boonId: Long) {
-        viewModelScope.launch { repository.deleteBoon(boonId) }
+        viewModelScope.launch {
+            val deletion = repository.deleteBoon(boonId) ?: return@launch
+            offerUndo("Boon “${deletion.boon.text}” deleted") {
+                repository.restoreBoon(deletion)
+            }
+        }
     }
 
     fun setNotificationsEnabled(enabled: Boolean) {
@@ -154,8 +192,10 @@ class DaemonDetailViewModel(
         viewModelScope.launch { specs.forEach { repository.addMajorFromCatalog(daemonId, it) } }
     }
 
-    fun editMajor(majorId: Long, title: String, fragmentOverride: String?) {
-        viewModelScope.launch { repository.editMajor(majorId, title, fragmentOverride) }
+    fun editMajor(majorId: Long, title: String, fragmentOverride: String?, thresholdCount: Int) {
+        viewModelScope.launch {
+            repository.editMajor(majorId, title, fragmentOverride, thresholdCount)
+        }
     }
 
     fun editMinor(
@@ -172,8 +212,8 @@ class DaemonDetailViewModel(
         }
     }
 
-    fun addMajor(title: String) {
-        viewModelScope.launch { repository.addMajor(daemonId, title.trim()) }
+    fun addMajor(title: String, thresholdCount: Int) {
+        viewModelScope.launch { repository.addMajor(daemonId, title.trim(), thresholdCount) }
     }
 
     fun addMinor(
@@ -197,7 +237,12 @@ class DaemonDetailViewModel(
     }
 
     fun deleteMinor(minorId: Long) {
-        viewModelScope.launch { repository.deleteMinor(minorId) }
+        viewModelScope.launch {
+            val snapshot = repository.deleteMinor(minorId) ?: return@launch
+            offerUndo("“${snapshot.title}” deleted") {
+                repository.restoreMinor(snapshot)
+            }
+        }
     }
 
     fun completeMajor(majorId: Long) {
@@ -230,7 +275,14 @@ class DaemonDetailViewModel(
     fun confirmDeleteMajor() {
         val preview = _deletePreview.value ?: return
         _deletePreview.value = null
-        viewModelScope.launch { repository.deleteMajor(preview.majorId) }
+        viewModelScope.launch {
+            val deletion = repository.deleteMajor(preview.majorId) ?: return@launch
+            val minorNote = if (deletion.minors.isEmpty()) ""
+            else " with ${deletion.minors.size} minors"
+            offerUndo("“${deletion.major.title}”$minorNote deleted") {
+                repository.restoreMajor(deletion)
+            }
+        }
     }
 
     // ---- v0.0.10 attention/decay/boon-accrual overrides ----
